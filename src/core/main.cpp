@@ -1,21 +1,27 @@
-#include <vulkan/vulkan.h>
 #include <iostream>
-#include <vector>
+
+#include <iomanip>// show more precision
+
+#include "math/Vector.hpp" // Ensure this path matches your folder structure
+using namespace Genesis;
 
 int main() {
-    VkInstance instance;
-    VkInstanceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    // Test our N-dimensional Vector
+    dvec3 myPos(1.0, 2.0, 3.0);
 
-    if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-        std::cerr << "Vulkan failed to initialize. Check your drivers!" << std::endl;
-        return -1;
-    }
+    double gooberism = 4.2000000000023;
+    float test = static_cast<float>(gooberism);
 
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-    std::cout << "Vulkan initialized. Found " << deviceCount << " GPU(s)." << std::endl;
 
-    vkDestroyInstance(instance, nullptr);
+    std::cout << std::setprecision(17) << std::fixed;
+
+    std::cout << gooberism << std::endl;
+    std::cout << test << std::endl;
+
+    std::cout << "Vector length: " << myPos.length() << std::endl;
+
+    // Test the global length function (GLSL style)
+    std::cout << "GLSL-style length: " << Genesis::length(myPos) << std::endl;
+
     return 0;
 }
