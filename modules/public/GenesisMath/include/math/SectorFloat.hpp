@@ -5,18 +5,19 @@
 
 namespace Genesis {
 
-    template<typename ST, typename LT, auto SectorSize> // SectorSize Must be same type as LT
+    template<typename ST, typename LT, typename SectorSize> // SectorSize Must be same type as LT
     struct SectorFloat {
         ST sector = 0;
         LT local = 0;
 
-        static_assert(std::is_same_v<decltype(SectorSize), LT>,
-            "Genesis Error: SectorSize type must match Local Type (LT) as 'SectorSize' should also share the same units as the 'local' variable");
+        // We use std::remove_cvref_t to strip 'const' so 'const double' matches 'double'
+        static_assert(std::is_same_v<std::remove_cvref_t<decltype(SectorSize::sectorSize)>, LT>,
+            "Genesis Error: SectorSize type must match Local Type (LT)...");
 
         void rebase() {
-            LT offset = std::floor(local / SectorSize);
+            LT offset = std::floor(local / SectorSize::sectorSize);
             sector += static_cast<ST>(offset);
-            local -= offset * SectorSize;
+            local -= offset * SectorSize::sectorSize;
         }
 
         // 1. Force Zeros: No arguments allowed
