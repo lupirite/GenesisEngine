@@ -1,33 +1,22 @@
-#include <iostream>
-
-#include <iomanip>// show more precision
-
-#include "GenesisMath.hpp"
-#include "GenesisEditor.hpp"
-using namespace Genesis;
-
-struct SectorSize {
-    static constexpr double sectorSize = 1000.0;
-};
+#include "GpuSystem.hpp"
+#include <GLFW/glfw3.h> // This fixes glfwWindowShouldClose and glfwPollEvents
+#include <vulkan/vulkan.h> // This fixes VkClearValue
 
 int main() {
-    // Test our N-dimensional Vector
-    dvec3 myPos(1.0, 2.0, 3.0);
+    Genesis::GpuSystem gpu;
+    gpu.init();
+    auto& ctx = gpu.get_context();
 
-    std::cout << std::setprecision(17) << std::fixed;
+    while (!glfwWindowShouldClose(ctx.window)) {
+        glfwPollEvents();
 
+        // If you see a Dark Grey window, the GpuSystem is 100% working!
+        // (This is the minimum code to see a result)
+        VkClearValue clearColor = {{{0.1f, 0.1f, 0.1f, 1.0f}}};
 
+        // This is where you'd normally start your render pass...
+    }
 
-    // This should WORK: ST is int64_t, LT is double, SectorSize is double
-    SectorFloat<int64_t, double, SectorSize> correct_pos;
-
-    // This should FAIL at compile time: SectorSize is an 'int', but LT is 'double'
-    // Genesis::SectorFloat<int64_t, double, 1000> broken_pos;
-
-    std::cout << "Vector length: " << myPos.length() << std::endl;
-
-    // Test the global length function (GLSL style)
-    std::cout << "GLSL-style length: " << length(myPos) << std::endl;
-
+    gpu.cleanup();
     return 0;
 }
