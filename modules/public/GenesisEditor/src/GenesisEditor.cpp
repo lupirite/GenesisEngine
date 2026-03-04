@@ -41,11 +41,18 @@ namespace Genesis {
         init_info.MinImageCount = 3;
         init_info.ImageCount = 3;
 
-        //init_info.RenderPass = ctx.renderPass;
+        init_info.PipelineInfoMain.RenderPass = ctx.renderPass;
+        init_info.PipelineInfoMain.Subpass = 0;
+        init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+        // Since you aren't using Dynamic Rendering (you have a RenderPass)
+        init_info.UseDynamicRendering = false;
 
         //ImGui_ImplVulkan_Init(&init_info, ctx.renderPass);
 
-        ImGui_ImplVulkan_Init(&init_info);
+        if (!ImGui_ImplVulkan_Init(&init_info)) {
+            throw std::runtime_error("Genesis Editor: Failed to init Vulkan implementation");
+        }
 
         // 4. URGENT: Upload Fonts
         // Older ImGui needed CreateFontsTexture(), newer ones handle it via NewFrame,

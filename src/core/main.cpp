@@ -1,3 +1,5 @@
+#include <stdexcept>
+
 #include "GpuSystem.hpp"
 #include "GenesisEditor.hpp"
 #include <GLFW/glfw3.h>
@@ -13,29 +15,31 @@ int main() {
     Genesis::GenesisEditor editor;
     editor.init(ctx);
 
+    VkFence renderFence;
+    VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT };
+    vkCreateFence(ctx.device, &fenceInfo, nullptr, &renderFence);
+
     while (!glfwWindowShouldClose(ctx.window)) {
         glfwPollEvents();
 
-        // --- NEW: START EDITOR FRAME ---
+        // 1. Start the Editor Frame (Calculates UI logic, doesn't draw yet)
         editor.new_frame();
+        ImGui::ShowDemoWindow();
 
-        // Create a simple test window
-        ImGui::Begin("Genesis Engine Control");
-        ImGui::Text("Hello, RTX 2060!");
-        if (ImGui::Button("Power Down")) {
-            glfwSetWindowShouldClose(ctx.window, true);
-        }
-        ImGui::End();
-
-        // 3. Vulkan Rendering (The "Heartbeat")
+        // 2. Acquire Image from Swapchain
         uint32_t imageIndex;
         vkAcquireNextImageKHR(ctx.device, ctx.swapchain, UINT64_MAX, VK_NULL_HANDLE, VK_NULL_HANDLE, &imageIndex);
 
-        // Record Commands
-        VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+        // 3. START RECORDING (This fixes the "Recording State" error)
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
         vkBeginCommandBuffer(ctx.commandBuffer, &beginInfo);
 
-        VkRenderPassBeginInfo rpInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+        // 4. Start Render Pass
+        VkRenderPassBeginInfo rpInfo = {};
+        rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         rpInfo.renderPass = ctx.renderPass;
         rpInfo.framebuffer = ctx.framebuffers[imageIndex];
         rpInfo.renderArea.extent = ctx.swapchainExtent;
@@ -46,24 +50,36 @@ int main() {
 
         vkCmdBeginRenderPass(ctx.commandBuffer, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        // --- NEW: DRAW THE EDITOR ---
+        // 5. DRAW THE EDITOR (Must be inside the Begin/End block)
         editor.render(ctx.commandBuffer);
 
         vkCmdEndRenderPass(ctx.commandBuffer);
+
+        // 6. FINISH RECORDING
         vkEndCommandBuffer(ctx.commandBuffer);
 
-        // Submit to GPU
-        VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+        // 7. Submit to GPU
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &ctx.commandBuffer;
-        vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 
-        VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+        if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to submit draw command buffer!");
+        }
+
+        // --- THIS IS THE PRESENT INFO AREA ---
+        VkPresentInfoKHR presentInfo = {};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = &ctx.swapchain;
-        presentInfo.pImageIndices = &imageIndex;
+        presentInfo.pImageIndices = &imageIndex; // The index we got from vkAcquireNextImageKHR
+        presentInfo.pResults = nullptr; // Optional
+
+        // Flip the "Page" to the monitor
         vkQueuePresentKHR(ctx.graphicsQueue, &presentInfo);
 
+        // 8. Wait (Keep this for now so the CPU doesn't outrun the GPU)
         vkDeviceWaitIdle(ctx.device);
     }
 
