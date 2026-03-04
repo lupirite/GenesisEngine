@@ -24,6 +24,24 @@ int main() {
 
         // 1. Start the Editor Frame (Calculates UI logic, doesn't draw yet)
         editor.new_frame();
+
+        // Create a transparent overlay in the top-left corner
+        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
+        ImGui::SetNextWindowBgAlpha(0.35f); // Translucent
+        if (ImGui::Begin("Stats Overlay", nullptr,
+            ImGuiWindowFlags_NoDecoration |
+            ImGuiWindowFlags_AlwaysAutoResize |
+            ImGuiWindowFlags_NoSavedSettings |
+            ImGuiWindowFlags_NoFocusOnAppearing |
+            ImGuiWindowFlags_NoNav))
+        {
+            ImGui::Text("Genesis ND");//" | %s", ctx.gpuName.c_str());
+            ImGui::Separator();
+            ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+            ImGui::Text("Frame Time: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+            ImGui::End();
+        }
+
         ImGui::ShowDemoWindow();
 
         // 2. Acquire Image from Swapchain
