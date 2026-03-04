@@ -12,9 +12,15 @@ add_compile_options(-fno-fast-math)
 # Create a global list to store our module names
 set_property(GLOBAL PROPERTY GENESIS_MODULE_LIST "")
 
-# 1. First, find and add all modules (This fills the GLOBAL PROPERTY)
+# 1. First, find and add all modules
 file(GLOB_RECURSE MODULE_CMAKES "modules/*/CMakeLists.txt")
+
 foreach(MODULE_FILE ${MODULE_CMAKES})
+    # NEW: Skip any CMake file that is inside a "third_party" folder
+    if(MODULE_FILE MATCHES "third_party")
+        continue()
+    endif()
+
     get_filename_component(MODULE_DIR ${MODULE_FILE} DIRECTORY)
     add_subdirectory(${MODULE_DIR})
 endforeach()

@@ -21,6 +21,7 @@ target_link_libraries(GpuSystem PUBLIC
 target_include_directories(GpuSystem PUBLIC
         include
         src # So GpuSystem.cpp can find VkBootstrap.h if it's in the same folder
+        third_party
 )
 
 set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST GpuSystem)
