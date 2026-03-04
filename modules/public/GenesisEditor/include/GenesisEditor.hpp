@@ -1,5 +1,7 @@
 #pragma once
 #include <vulkan/vulkan.h>
+
+#include "GpuSystem.hpp"
 #include "imgui.h"
 
 namespace Genesis {
@@ -7,13 +9,7 @@ namespace Genesis {
     class GenesisEditor {
     public:
         // This is your "Init Function"
-        void init(GLFWwindow* window,
-                  VkInstance instance,
-                  VkPhysicalDevice physDevice,
-                  VkDevice device,
-                  uint32_t queueFamily,
-                  VkQueue graphicsQueue,
-                  VkRenderPass renderPass);
+        void init(const GpuContext& ctx);
 
         void shutdown(VkDevice device);
 

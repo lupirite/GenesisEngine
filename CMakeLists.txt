@@ -25,8 +25,6 @@ foreach(MODULE_FILE ${MODULE_CMAKES})
     add_subdirectory(${MODULE_DIR})
 endforeach()
 
-message(STATUS "Modules found: ${TOTAL_MODULES}")
-
 # 2. NOW create the executable
 add_executable(GenesisND src/core/main.cpp)
 
@@ -39,6 +37,8 @@ target_include_directories(GenesisND PRIVATE
 # 3. NOW retrieve the finished list
 get_property(TOTAL_MODULES GLOBAL PROPERTY GENESIS_MODULE_LIST)
 
+message(STATUS "Modules found: ${TOTAL_MODULES}")
+
 # 4. NOW link everything
 target_link_libraries(GenesisND PRIVATE
         Vulkan::Vulkan
@@ -48,7 +48,7 @@ target_link_libraries(GenesisND PRIVATE
 # Strict "Genesis Laws" (Target-Specific)
 target_compile_options(GenesisND PRIVATE
         -Wall
-        -Wextra
+        #-Wextra
         -Wconversion
         -Wfloat-conversion
         -Werror=conversion

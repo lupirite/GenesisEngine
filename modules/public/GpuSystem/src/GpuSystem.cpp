@@ -114,9 +114,20 @@ namespace Genesis {
         if (vkCreateCommandPool(context.device, &poolInfo, nullptr, &context.commandPool) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create command pool");
         }
+
+        VkCommandBufferAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = context.commandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = 1;
+
+        if (vkAllocateCommandBuffers(context.device, &allocInfo, &context.commandBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate command buffers");
+        }
     }
 
     void GpuSystem::cleanup() {
+        vkDeviceWaitIdle(context.device);
 
         vkDestroyCommandPool(context.device, context.commandPool, nullptr);
 

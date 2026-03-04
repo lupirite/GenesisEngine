@@ -14,6 +14,7 @@ namespace Genesis {
         VkQueue graphicsQueue;
         uint32_t graphicsQueueFamily;
         VkCommandPool commandPool;
+        VkCommandBuffer commandBuffer;
 
         VkSwapchainKHR swapchain;
         std::vector<VkImage> swapchainImages;
