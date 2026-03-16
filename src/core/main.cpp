@@ -35,10 +35,29 @@ int main() {
             ImGuiWindowFlags_NoFocusOnAppearing |
             ImGuiWindowFlags_NoNav))
         {
-            ImGui::Text("Genesis ND");//" | %s", ctx.gpuName.c_str());
+            ImGui::Text("Genesis");//" | %s", ctx.gpuName.c_str());
             ImGui::Separator();
             ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
             ImGui::Text("Frame Time: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+            ImGui::End();
+        }
+
+        ImGui::SetNextWindowPos(ImVec2(400, 10), ImGuiCond_Always);
+        ImGui::SetNextWindowBgAlpha(0.35f); // Translucent
+        if (ImGui::Begin("Test Window", nullptr,
+            ImGuiWindowFlags_NoDecoration |
+            ImGuiWindowFlags_AlwaysAutoResize |
+            ImGuiWindowFlags_NoSavedSettings |
+            ImGuiWindowFlags_NoFocusOnAppearing |
+            ImGuiWindowFlags_NoNav))
+        {
+            ImGui::Text("Test");//" | %s", ctx.gpuName.c_str());
+            ImGui::Separator();
+            ImGui::Text("TESTING");
+
+            if (ImGui::CollapsingHeader("Help")) {
+                ImGui::Text("Hello");
+            }
             ImGui::End();
         }
 

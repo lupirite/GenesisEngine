@@ -1,0 +1,29 @@
+
+
+
+Modular Design
+
+    -All code is divided into modules to encourage contributors to write clean reusable code.
+    -Each module should contain code, a CMakeLists.txt file for its code, as well as a .json file that lists the module ID and version number,
+        as well as all that module's dependency modules and minimum supported versions.
+    -Try to minimize each module's dependence on other modules as much as practically possible while also attempting to reuse code whenever practical.
+
+
+
+
+Code Guidelines
+    -Code documentation is much appreciated by everyone. Like your code, try to keep this organised and easy to navigate so others can have a better time
+        using your modules.
+    -Even better than code documentation, you should make your code Explicit. Put time into naming your variables, functions, and classes. They should be very
+        self-explanatory. Someone should be able to read your code and immediately know how it works without comments. That being said, Please comment your
+        code as well when it's helpful.
+    -Avoid recursion. Yes yes, I get it, recursion is Amazing, I love it too, okay? But it's more like a "fun toy" for us
+        programmers rather than an actual practical tool. Yes, it has a certain elegance, but it's a Lot easier to tell what the behavior of your code even
+        is if you just use a loop instead. Also, then you avoid nasty stack overflow issues, nobody wants those.
+    -Take inspiration from NASA's coding standards
+    -Exceptions are supposed to make debugging easier. If you're going to throw an exception, Please Please take the time to write out a nice NON-CRYPTIC
+        explanation of what actually went wrong. Are people going to frequently misuse your module? If so, maybe you should make it more intuitive. The
+        Least you could do is not be the one to stop someone's program from running with some vague message like: "Error 392, values must be the same"
+
+Genesis Engine is designed to be an open-source community dedicated to developing powerful software that builds off of each other.
+One person might make a really powerful 3D modeling engine, another could take that engine, and write a couple new modules to turn it into a 7D modeling engine.
