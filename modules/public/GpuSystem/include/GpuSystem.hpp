@@ -23,6 +23,9 @@ namespace Genesis {
         VkExtent2D swapchainExtent;
         VkRenderPass renderPass;
         std::vector<VkFramebuffer> framebuffers;
+
+        VkDescriptorPool descriptorPool; // For binding textures to ImGui/Shaders
+        VkPhysicalDeviceProperties gpuProperties; // To check limits (max texture size, etc.)
     };
 
     class GpuSystem {

@@ -11,6 +11,7 @@ Modular Design
 
 
 
+
 Code Guidelines
     -Code documentation is much appreciated by everyone. Like your code, try to keep this organised and easy to navigate so others can have a better time
         using your modules.
@@ -27,3 +28,4 @@ Code Guidelines
 
 Genesis Engine is designed to be an open-source community dedicated to developing powerful software that builds off of each other.
 One person might make a really powerful 3D modeling engine, another could take that engine, and write a couple new modules to turn it into a 7D modeling engine.
+The idea is that you can have Exactly As much control over your code as you want. Get Exactly how low level you want.

@@ -2,6 +2,8 @@
 
 #include "GpuSystem.hpp"
 #include "GenesisEditor.hpp"
+#include "SceneRenderer.hpp"
+
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
@@ -14,6 +16,9 @@ int main() {
     // 2. Setup Editor
     Genesis::GenesisEditor editor;
     editor.init(ctx);
+
+    Genesis::SceneRenderer myScene;
+    myScene.init(ctx, 1280, 720);
 
     VkFence renderFence;
     VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT };
@@ -55,6 +60,8 @@ int main() {
             ImGui::Separator();
             ImGui::Text("TESTING");
 
+            ImGui::Image((ImTextureID)myScene.get_descriptor_set(), ImVec2(1280, 720));
+
             if (ImGui::CollapsingHeader("Help")) {
                 ImGui::Text("Hello");
             }
@@ -65,7 +72,13 @@ int main() {
 
         // 2. Acquire Image from Swapchain
         uint32_t imageIndex;
-        vkAcquireNextImageKHR(ctx.device, ctx.swapchain, UINT64_MAX, VK_NULL_HANDLE, VK_NULL_HANDLE, &imageIndex);
+
+        vkResetFences(ctx.device, 1, &renderFence);
+
+        vkAcquireNextImageKHR(ctx.device, ctx.swapchain, UINT64_MAX, VK_NULL_HANDLE, renderFence, &imageIndex);
+
+        vkWaitForFences(ctx.device, 1, &renderFence, VK_TRUE, UINT64_MAX);
+
 
         // 3. START RECORDING (This fixes the "Recording State" error)
         VkCommandBufferBeginInfo beginInfo = {};
@@ -73,6 +86,8 @@ int main() {
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
         vkBeginCommandBuffer(ctx.commandBuffer, &beginInfo);
+
+        myScene.record_commands(ctx.commandBuffer);
 
         // 4. Start Render Pass
         VkRenderPassBeginInfo rpInfo = {};
@@ -121,6 +136,7 @@ int main() {
     }
 
     // 4. Cleanup
+    myScene.cleanup(ctx.device);
     editor.shutdown(ctx.device);
     gpu.cleanup();
 
