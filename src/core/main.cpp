@@ -18,7 +18,12 @@ int main() {
     editor.init(ctx);
 
     Genesis::SceneRenderer myScene;
-    myScene.init(ctx, 1280, 720);
+    try {
+        myScene.init(ctx, 1280, 720);
+    } catch (const std::exception& e) {
+        printf("CRITICAL ERROR: %s\n", e.what());
+        return -1;
+    }
 
     VkFence renderFence;
     VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT };

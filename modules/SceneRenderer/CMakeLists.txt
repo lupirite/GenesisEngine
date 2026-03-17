@@ -26,4 +26,26 @@ target_link_libraries(SceneRenderer PUBLIC
         GenesisEditor
 )
 
+# Find the glslangValidator (comes with Vulkan SDK)
+find_program(GLSL_VALIDATOR glslangValidator)
+
+# Function to compile shaders automatically
+function(compile_shader SHADER_PATH)
+    get_filename_component(SHADER_NAME ${SHADER_PATH} NAME)
+    set(SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${SHADER_NAME}.spv")
+
+    add_custom_command(
+            OUTPUT ${SPIRV_OUTPUT}
+            COMMAND ${GLSL_VALIDATOR} -V ${SHADER_PATH} -o ${SPIRV_OUTPUT}
+            DEPENDS ${SHADER_PATH}
+            COMMENT "Compiling shader ${SHADER_NAME}"
+    )
+    # Ensure the library depends on these outputs
+    target_sources(SceneRenderer PRIVATE ${SPIRV_OUTPUT})
+endfunction()
+
+# Compile your test shaders
+compile_shader("${CMAKE_CURRENT_SOURCE_DIR}/shaders/gradient.vert")
+compile_shader("${CMAKE_CURRENT_SOURCE_DIR}/shaders/gradient.frag")
+
 set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST SceneRenderer)

@@ -27,5 +27,10 @@ namespace Genesis {
         VkFramebuffer _framebuffer;
 
         uint32_t _width, _height;
+
+        VkPipelineLayout _pipelineLayout;
+        VkPipeline _graphicsPipeline;
+
+        void create_pipeline(VkDevice device);
     };
 }
