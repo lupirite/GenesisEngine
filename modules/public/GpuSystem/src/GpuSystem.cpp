@@ -19,6 +19,7 @@ namespace Genesis {
 
         vkb::Instance vkb_inst = inst_ret.value();
         context.instance = vkb_inst.instance;
+        context.debugMessenger = vkb_inst.debug_messenger;
 
         // 3. Select Physical Device & Logical Device
         // We need a surface to tell Vulkan which GPU can talk to our window
@@ -150,6 +151,64 @@ namespace Genesis {
         vkGetPhysicalDeviceProperties(context.physDevice, &context.gpuProperties);
     }
 
+    void GpuSystem::recreate_swapchain() {
+        // 1. Wait for GPU to finish work
+        vkDeviceWaitIdle(context.device);
+
+        int width = 0, height = 0;
+        glfwGetFramebufferSize(context.window, &width, &height);
+
+        // Handle minimization (if width/height are 0, just wait)
+        while (width == 0 || height == 0) {
+            glfwGetFramebufferSize(context.window, &width, &height);
+            glfwWaitEvents();
+        }
+
+        // 2. Clean up old resources
+        for (auto framebuffer : context.framebuffers) {
+            vkDestroyFramebuffer(context.device, framebuffer, nullptr);
+        }
+        for (auto imageView : context.swapchainImageViews) {
+            vkDestroyImageView(context.device, imageView, nullptr);
+        }
+
+        // 3. Re-build the swapchain using vk-bootstrap
+        // It automatically detects the new window size from the surface
+        vkb::SwapchainBuilder swapchain_builder{ context.physDevice, context.device, context.surface };
+        auto swap_ret = swapchain_builder
+            .set_desired_extent(width, height)
+            // FORCE it to match your RenderPass
+            .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
+            .set_old_swapchain(context.swapchain)
+            .build();
+
+        // Destroy the old handle after the new one is built
+        vkDestroySwapchainKHR(context.device, context.swapchain, nullptr);
+
+        vkb::Swapchain vkb_swapchain = swap_ret.value();
+        context.swapchain = vkb_swapchain.swapchain;
+        context.swapchainImages = vkb_swapchain.get_images().value();
+        context.swapchainImageViews = vkb_swapchain.get_image_views().value();
+        context.swapchainImageFormat = vkb_swapchain.image_format;
+        context.swapchainExtent = vkb_swapchain.extent;
+
+        // 4. Re-create Framebuffers for the new images
+        context.framebuffers.resize(context.swapchainImageViews.size());
+        for (size_t i = 0; i < context.swapchainImageViews.size(); i++) {
+            VkImageView attachments[] = { context.swapchainImageViews[i] };
+
+            VkFramebufferCreateInfo fbInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+            fbInfo.renderPass = context.renderPass;
+            fbInfo.attachmentCount = 1;
+            fbInfo.pAttachments = attachments;
+            fbInfo.width = context.swapchainExtent.width;
+            fbInfo.height = context.swapchainExtent.height;
+            fbInfo.layers = 1;
+
+            vkCreateFramebuffer(context.device, &fbInfo, nullptr, &context.framebuffers[i]);
+        }
+    }
+
     void GpuSystem::cleanup() {
         vkDeviceWaitIdle(context.device);
 
@@ -171,6 +230,14 @@ namespace Genesis {
         vkDestroySwapchainKHR(context.device, context.swapchain, nullptr);
 
         vkDestroyDevice(context.device, nullptr);
+
+        if (context.debugMessenger != VK_NULL_HANDLE) {
+            auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
+            if (func != nullptr) {
+                func(context.instance, context.debugMessenger, nullptr);
+            }
+        }
+
         vkDestroySurfaceKHR(context.instance, context.surface, nullptr);
         vkDestroyInstance(context.instance, nullptr);
 

@@ -80,7 +80,13 @@ int main() {
 
         vkResetFences(ctx.device, 1, &renderFence);
 
-        vkAcquireNextImageKHR(ctx.device, ctx.swapchain, UINT64_MAX, VK_NULL_HANDLE, renderFence, &imageIndex);
+        VkResult result = vkAcquireNextImageKHR(ctx.device, ctx.swapchain, UINT64_MAX, VK_NULL_HANDLE, renderFence, &imageIndex);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            ImGui::EndFrame();
+            gpu.recreate_swapchain();
+            continue;
+        }
 
         vkWaitForFences(ctx.device, 1, &renderFence, VK_TRUE, UINT64_MAX);
 
@@ -143,6 +149,8 @@ int main() {
     // 4. Cleanup
     myScene.cleanup(ctx.device);
     editor.shutdown(ctx.device);
+
+    vkDestroyFence(ctx.device, renderFence, nullptr);
     gpu.cleanup();
 
     return 0;

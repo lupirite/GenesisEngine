@@ -26,11 +26,16 @@ namespace Genesis {
 
         VkDescriptorPool descriptorPool; // For binding textures to ImGui/Shaders
         VkPhysicalDeviceProperties gpuProperties; // To check limits (max texture size, etc.)
+
+        VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
     };
 
     class GpuSystem {
     public:
         void init();
+
+        void recreate_swapchain();
+
         void cleanup();
 
         GpuContext& get_context() { return context; }
