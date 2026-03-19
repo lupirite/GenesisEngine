@@ -35,6 +35,8 @@ namespace Genesis {
         float time;
         float width;
         float height;
+        float sphereRadius;
+        float sphereColor[3];
     };
 
     uint32_t SceneRenderer::find_memory_type(VkPhysicalDevice physDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -245,7 +247,7 @@ namespace Genesis {
         vkDestroyShaderModule(device, fragModule, nullptr);
     }
 
-    void SceneRenderer::record_commands(VkCommandBuffer cmd, float timeValue) {
+    void SceneRenderer::record_commands(VkCommandBuffer cmd, float timeValue, float sphereRadius, float sphereColor[3]) {
         VkRenderPassBeginInfo rpInfo = {};
         rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         rpInfo.renderPass = _renderPass;
@@ -269,6 +271,10 @@ namespace Genesis {
         constants.time = timeValue;
         constants.width = (float)_width;
         constants.height = (float)_height;
+        constants.sphereRadius = sphereRadius;
+        constants.sphereColor[0] = sphereColor[0];
+        constants.sphereColor[1] = sphereColor[1];
+        constants.sphereColor[2] = sphereColor[2];
 
         vkCmdPushConstants(
             cmd,

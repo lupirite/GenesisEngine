@@ -6,6 +6,8 @@ layout(push_constant) uniform Constants {
     float time;
     float winWidth;
     float winHeight;
+    float sphereRadius;
+    vec3 sphereColor;
 };
 
 
@@ -25,7 +27,7 @@ float getSphereDist(vec3 pos, float radius) {
 }
 
 float getDist(vec3 pos) {
-    float d1 = getSphereDist(pos-vec3(0., 0., 4.), .5);
+    float d1 = getSphereDist(pos-vec3(0., 0., 4.), sphereRadius);
     float d2 = getSphereDist(pos-vec3(1.05, 0., 3.8), .75);
     float d3 = smin(d1, d2, .05);
 
@@ -56,7 +58,7 @@ float rayMarch(vec3 pos, vec3 dir) {
     return MAXRAYDIST;
 }
 
-vec3 sunDir = vec3(1., -1.5, .5);
+vec3 sunDir = vec3(1., 1.5, .5);
 
 
 void main() {
@@ -73,7 +75,7 @@ void main() {
 
     vec3 norm = getNorm(pos);
 
-    vec3 col = (1.+dot(norm, -sunDir))/2.*vec3(.25, .1, .9);
+    vec3 col = (1.+dot(norm, -sunDir))/2.*sphereColor;
 
     if (dist >= MAXRAYDIST) {
         col = vec3(.5, .6, .9);

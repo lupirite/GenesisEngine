@@ -29,11 +29,60 @@ int main() {
     VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT };
     vkCreateFence(ctx.device, &fenceInfo, nullptr, &renderFence);
 
+    static float sphereRadius = .5;
+    static ImVec4 sphereColor = ImVec4(.25f, .1f, .9f, 1.f);
+
     while (!glfwWindowShouldClose(ctx.window)) {
         glfwPollEvents();
 
         // 1. Start the Editor Frame (Calculates UI logic, doesn't draw yet)
         editor.new_frame();
+
+        ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(400, 10), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowBgAlpha(0.35f); // Translucent
+        if (ImGui::Begin("Test Window", nullptr,
+            //ImGuiWindowFlags_NoDecoration |
+            //ImGuiWindowFlags_AlwaysAutoResize |
+            ImGuiWindowFlags_NoSavedSettings |
+            ImGuiWindowFlags_NoFocusOnAppearing |
+            ImGuiWindowFlags_NoNav |
+            ImGuiWindowFlags_NoBringToFrontOnFocus))
+        {
+            ImGui::Text("Test");//" | %s", ctx.gpuName.c_str());
+            ImGui::Separator();
+            ImGui::Text("TESTING");
+
+            // Get the actual size of the content area in the ImGui window
+            ImVec2 currentSize = ImGui::GetContentRegionAvail();
+
+            if (currentSize.x > 0.1f && currentSize.y > 0.1f) {
+                if ((uint32_t)currentSize.x != myScene.get_width() || (uint32_t)currentSize.y != myScene.get_height())
+                {
+                    vkDeviceWaitIdle(ctx.device);
+                    myScene.cleanup(ctx.device);
+                    myScene.init(ctx, (uint32_t)currentSize.x, (uint32_t)currentSize.y);
+                }
+            }
+
+            // Now draw the image at the NEW perfect size
+            ImGui::Image((ImTextureID)myScene.get_descriptor_set(), currentSize);
+
+            /*if (ImGui::CollapsingHeader("Help")) {
+                ImGui::Text("Hello");
+            }*/
+
+        } else {
+            ImVec2 currentSize = ImVec2(1, 1);
+
+            if ((uint32_t)currentSize.x != myScene.get_width() || (uint32_t)currentSize.y != myScene.get_height())
+            {
+                vkDeviceWaitIdle(ctx.device);
+                myScene.cleanup(ctx.device);
+                myScene.init(ctx, (uint32_t)currentSize.x, (uint32_t)currentSize.y);
+            }
+        }
+        ImGui::End();
 
         // Create a transparent overlay in the top-left corner
         ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
@@ -43,7 +92,8 @@ int main() {
             ImGuiWindowFlags_AlwaysAutoResize |
             ImGuiWindowFlags_NoSavedSettings |
             ImGuiWindowFlags_NoFocusOnAppearing |
-            ImGuiWindowFlags_NoNav))
+            ImGuiWindowFlags_NoNav |
+            ImGuiWindowFlags_Tooltip))
         {
             ImGui::Text("Genesis");//" | %s", ctx.gpuName.c_str());
             ImGui::Separator();
@@ -52,28 +102,26 @@ int main() {
             ImGui::End();
         }
 
-        ImGui::SetNextWindowPos(ImVec2(400, 10), ImGuiCond_Always);
+        // Create a transparent overlay in the top-left corner
+        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowBgAlpha(0.35f); // Translucent
-        if (ImGui::Begin("Test Window", nullptr,
+        if (ImGui::Begin("Scene Settings", nullptr,
             ImGuiWindowFlags_NoDecoration |
             ImGuiWindowFlags_AlwaysAutoResize |
             ImGuiWindowFlags_NoSavedSettings |
             ImGuiWindowFlags_NoFocusOnAppearing |
             ImGuiWindowFlags_NoNav))
         {
-            ImGui::Text("Test");//" | %s", ctx.gpuName.c_str());
+
+            ImGui::Text("Scene Settings");//" | %s", ctx.gpuName.c_str());
             ImGui::Separator();
-            ImGui::Text("TESTING");
+            ImGui::DragFloat("Sphere Radius", &sphereRadius, 0.005f, 0.0f, 1.0f);
 
-            ImGui::Image((ImTextureID)myScene.get_descriptor_set(), ImVec2(1280, 720));
-
-            if (ImGui::CollapsingHeader("Help")) {
-                ImGui::Text("Hello");
-            }
+            ImGui::ColorEdit3("Sphere Color", (float*)&sphereColor);
             ImGui::End();
         }
 
-        ImGui::ShowDemoWindow();
+        //ImGui::ShowDemoWindow();
 
         // 2. Acquire Image from Swapchain
         uint32_t imageIndex;
@@ -100,7 +148,9 @@ int main() {
 
         float timeValue = (float)glfwGetTime();
 
-        myScene.record_commands(ctx.commandBuffer, timeValue);
+        if (myScene.get_width() > 1) {
+            myScene.record_commands(ctx.commandBuffer, timeValue, sphereRadius, (float*)&sphereColor);
+        }
 
         // 4. Start Render Pass
         VkRenderPassBeginInfo rpInfo = {};
