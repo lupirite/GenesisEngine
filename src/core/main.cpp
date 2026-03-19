@@ -98,7 +98,9 @@ int main() {
 
         vkBeginCommandBuffer(ctx.commandBuffer, &beginInfo);
 
-        myScene.record_commands(ctx.commandBuffer);
+        float timeValue = (float)glfwGetTime();
+
+        myScene.record_commands(ctx.commandBuffer, timeValue);
 
         // 4. Start Render Pass
         VkRenderPassBeginInfo rpInfo = {};

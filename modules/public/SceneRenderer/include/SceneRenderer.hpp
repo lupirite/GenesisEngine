@@ -11,7 +11,7 @@ namespace Genesis {
         // This is what the Editor calls to show this scene in a window
         VkDescriptorSet get_descriptor_set() { return _descriptorSet; }
 
-        void record_commands(VkCommandBuffer cmd);
+        void record_commands(VkCommandBuffer cmd, float timeValue);
 
     private:
         uint32_t find_memory_type(VkPhysicalDevice physDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);

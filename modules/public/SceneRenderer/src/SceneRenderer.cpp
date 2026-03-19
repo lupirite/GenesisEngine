@@ -31,6 +31,12 @@ VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code
 
 namespace Genesis {
 
+    struct ShaderConstants {
+        float time;
+        float width;
+        float height;
+    };
+
     uint32_t SceneRenderer::find_memory_type(VkPhysicalDevice physDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
         VkPhysicalDeviceMemoryProperties memProperties;
         vkGetPhysicalDeviceMemoryProperties(physDevice, &memProperties);
@@ -155,12 +161,13 @@ namespace Genesis {
         fbInfo.layers = 1;
 
         vkCreateFramebuffer(ctx.device, &fbInfo, nullptr, &_framebuffer);
+
         create_pipeline(ctx.device);
     }
 
     void Genesis::SceneRenderer::create_pipeline(VkDevice device) {
-        auto vertCode = readFile("modules/SceneRenderer/shaders/gradient.vert.spv");
-        auto fragCode = readFile("modules/SceneRenderer/shaders/gradient.frag.spv");
+        auto vertCode = readFile(std::string(SHADER_DIR) + "gradient.vert.spv");
+        auto fragCode = readFile(std::string(SHADER_DIR) + "gradient.frag.spv");
 
         VkShaderModule vertModule = createShaderModule(device, vertCode);
         VkShaderModule fragModule = createShaderModule(device, fragCode);
@@ -176,8 +183,15 @@ namespace Genesis {
         stages[1].module = fragModule;
         stages[1].pName = "main";
 
+        VkPushConstantRange push_constant;
+        push_constant.offset = 0;
+        push_constant.size = sizeof(ShaderConstants);
+        push_constant.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
         // Pipeline Layout (Where your future Uniforms/Push Constants will live)
         VkPipelineLayoutCreateInfo layoutInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+        layoutInfo.pushConstantRangeCount = 1;
+        layoutInfo.pPushConstantRanges = &push_constant;
         vkCreatePipelineLayout(device, &layoutInfo, nullptr, &_pipelineLayout);
 
         // Minimal Pipeline State
@@ -231,7 +245,7 @@ namespace Genesis {
         vkDestroyShaderModule(device, fragModule, nullptr);
     }
 
-    void SceneRenderer::record_commands(VkCommandBuffer cmd) {
+    void SceneRenderer::record_commands(VkCommandBuffer cmd, float timeValue) {
         VkRenderPassBeginInfo rpInfo = {};
         rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         rpInfo.renderPass = _renderPass;
@@ -240,7 +254,7 @@ namespace Genesis {
         rpInfo.renderArea.extent = { _width, _height };
 
         // Let's go with a nice Genesis Purple/Blue for testing
-        VkClearValue clearColor = {{{ 0.1f, 0.05f, 0.5f, 1.0f }}};
+        VkClearValue clearColor = {{{ 0.1f, 0.0f, 0.0f, 1.0f }}};
         rpInfo.clearValueCount = 1;
         rpInfo.pClearValues = &clearColor;
 
@@ -250,6 +264,20 @@ namespace Genesis {
 
         // Bind our shader pipeline
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
+
+        ShaderConstants constants;
+        constants.time = timeValue;
+        constants.width = (float)_width;
+        constants.height = (float)_height;
+
+        vkCmdPushConstants(
+            cmd,
+            _pipelineLayout,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(ShaderConstants),
+            &constants
+        );
 
         // Draw 3 vertices (our giant triangle)
         vkCmdDraw(cmd, 3, 1, 0, 0);

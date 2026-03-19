@@ -12,11 +12,11 @@ add_library(SceneRenderer STATIC
 # This tells anyone who links SceneRenderer (like main.cpp)
 # to look in the 'include' folder.
 target_include_directories(SceneRenderer PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        include
+        src
         # Paths to find ImGui headers (adjust if your structure differs)
-        ${CMAKE_SOURCE_DIR}/modules/GenesisEditor/third_party/imgui
-        ${CMAKE_SOURCE_DIR}/modules/GenesisEditor/third_party/imgui/backends
+        ${CMAKE_SOURCE_DIR}/modules/public/GenesisEditor/third_party/imgui
+        ${CMAKE_SOURCE_DIR}/modules/public/GenesisEditor/third_party/imgui/backends
 )
 
 # 3. Link Dependencies
@@ -29,10 +29,12 @@ target_link_libraries(SceneRenderer PUBLIC
 # Find the glslangValidator (comes with Vulkan SDK)
 find_program(GLSL_VALIDATOR glslangValidator)
 
+set(GENESIS_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+
 # Function to compile shaders automatically
 function(compile_shader SHADER_PATH)
     get_filename_component(SHADER_NAME ${SHADER_PATH} NAME)
-    set(SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${SHADER_NAME}.spv")
+    set(SPIRV_OUTPUT "${GENESIS_SHADER_DIR}/${SHADER_NAME}.spv")
 
     add_custom_command(
             OUTPUT ${SPIRV_OUTPUT}
@@ -43,6 +45,10 @@ function(compile_shader SHADER_PATH)
     # Ensure the library depends on these outputs
     target_sources(SceneRenderer PRIVATE ${SPIRV_OUTPUT})
 endfunction()
+
+target_compile_definitions(SceneRenderer PRIVATE
+        SHADER_DIR="${GENESIS_SHADER_DIR}/"
+)
 
 # Compile your test shaders
 compile_shader("${CMAKE_CURRENT_SOURCE_DIR}/shaders/gradient.vert")
