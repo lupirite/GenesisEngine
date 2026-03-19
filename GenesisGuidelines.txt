@@ -1,5 +1,7 @@
 
-
+Genesis Engine is designed to be an open-source community dedicated to developing powerful software that builds off of each other.
+One person might make a really powerful 3D modeling engine, another could take that engine, and write a couple new modules to turn it into a 7D modeling engine.
+The idea is that you can have Exactly As much control over your code as you want. Get Exactly how low level you want.
 
 Modular Design
 
@@ -26,6 +28,10 @@ Code Guidelines
         explanation of what actually went wrong. Are people going to frequently misuse your module? If so, maybe you should make it more intuitive. The
         Least you could do is not be the one to stop someone's program from running with some vague message like: "Error 392, values must be the same"
 
-Genesis Engine is designed to be an open-source community dedicated to developing powerful software that builds off of each other.
-One person might make a really powerful 3D modeling engine, another could take that engine, and write a couple new modules to turn it into a 7D modeling engine.
-The idea is that you can have Exactly As much control over your code as you want. Get Exactly how low level you want.
+
+Reserved Abbreviations for naming conventions:
+
+    vec = vector
+    win = window
+    val = value
+    num = number
