@@ -3,158 +3,90 @@
 #include "GpuSystem.hpp"
 #include "GenesisEditor.hpp"
 #include "SceneRenderer.hpp"
+#include "EditorGUI.hpp"
 
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
 int main() {
-    // 1. Setup GPU
     Genesis::GpuSystem gpu;
     gpu.init();
     auto& ctx = gpu.get_context();
 
-    // 2. Setup Editor
     Genesis::GenesisEditor editor;
     editor.init(ctx);
 
+    Genesis::EditorGUI gui; // Our new organized module
     Genesis::SceneRenderer myScene;
-    try {
-        myScene.init(ctx, 1280, 720);
-    } catch (const std::exception& e) {
-        printf("CRITICAL ERROR: %s\n", e.what());
-        return -1;
-    }
+    myScene.init(ctx, 1280, 720);
 
     VkFence renderFence;
-    VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT };
-    vkCreateFence(ctx.device, &fenceInfo, nullptr, &renderFence);
+    VkFenceCreateInfo fenceInfo = {}; // Zero-initialize the struct
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.pNext = nullptr;
+    // THE FIX: It must be VK_FENCE_CREATE_SIGNALED_BIT
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    static float sphereRadius = .5;
-    static ImVec4 sphereColor = ImVec4(.25f, .1f, .9f, 1.f);
+    if (vkCreateFence(ctx.device, &fenceInfo, nullptr, &renderFence) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create render fence!");
+    }
+
+    VkSemaphore imageAvailableSemaphore;
+    VkSemaphoreCreateInfo semaphoreInfo = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+
+    if (vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create semaphore!");
+    }
 
     while (!glfwWindowShouldClose(ctx.window)) {
         glfwPollEvents();
 
-        // 1. Start the Editor Frame (Calculates UI logic, doesn't draw yet)
+        vkWaitForFences(ctx.device, 1, &renderFence, VK_TRUE, UINT64_MAX);
+
+        // --- THE NEW RESIZE GUARD ---
+        auto resize = gui.check_resize(myScene);
+        if (resize.needed) {
+            vkDeviceWaitIdle(ctx.device); // Stop everything!
+            myScene.cleanup(ctx.device);
+            myScene.init(ctx, resize.width, resize.height);
+        }
+
         editor.new_frame();
+        gui.render_ui(myScene, ctx); // Now this only DRAWS, it doesn't delete things.
 
-        ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowPos(ImVec2(400, 10), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowBgAlpha(0.35f); // Translucent
-        if (ImGui::Begin("Test Window", nullptr,
-            //ImGuiWindowFlags_NoDecoration |
-            //ImGuiWindowFlags_AlwaysAutoResize |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoFocusOnAppearing |
-            ImGuiWindowFlags_NoNav |
-            ImGuiWindowFlags_NoBringToFrontOnFocus))
-        {
-            ImGui::Text("Test");//" | %s", ctx.gpuName.c_str());
-            ImGui::Separator();
-            ImGui::Text("TESTING");
+        // ... rest of your Acquire/Record/Submit logic ...
 
-            // Get the actual size of the content area in the ImGui window
-            ImVec2 currentSize = ImGui::GetContentRegionAvail();
-
-            if (currentSize.x > 0.1f && currentSize.y > 0.1f) {
-                if ((uint32_t)currentSize.x != myScene.get_width() || (uint32_t)currentSize.y != myScene.get_height())
-                {
-                    vkDeviceWaitIdle(ctx.device);
-                    myScene.cleanup(ctx.device);
-                    myScene.init(ctx, (uint32_t)currentSize.x, (uint32_t)currentSize.y);
-                }
-            }
-
-            // Now draw the image at the NEW perfect size
-            ImGui::Image((ImTextureID)myScene.get_descriptor_set(), currentSize);
-
-            /*if (ImGui::CollapsingHeader("Help")) {
-                ImGui::Text("Hello");
-            }*/
-
-        } else {
-            ImVec2 currentSize = ImVec2(1, 1);
-
-            if ((uint32_t)currentSize.x != myScene.get_width() || (uint32_t)currentSize.y != myScene.get_height())
-            {
-                vkDeviceWaitIdle(ctx.device);
-                myScene.cleanup(ctx.device);
-                myScene.init(ctx, (uint32_t)currentSize.x, (uint32_t)currentSize.y);
-            }
-        }
-        ImGui::End();
-
-        // Create a transparent overlay in the top-left corner
-        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
-        ImGui::SetNextWindowBgAlpha(0.35f); // Translucent
-        if (ImGui::Begin("Stats Overlay", nullptr,
-            ImGuiWindowFlags_NoDecoration |
-            ImGuiWindowFlags_AlwaysAutoResize |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoFocusOnAppearing |
-            ImGuiWindowFlags_NoNav |
-            ImGuiWindowFlags_Tooltip))
-        {
-            ImGui::Text("Genesis");//" | %s", ctx.gpuName.c_str());
-            ImGui::Separator();
-            ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-            ImGui::Text("Frame Time: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
-            ImGui::End();
-        }
-
-        // Create a transparent overlay in the top-left corner
-        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowBgAlpha(0.35f); // Translucent
-        if (ImGui::Begin("Scene Settings", nullptr,
-            ImGuiWindowFlags_NoDecoration |
-            ImGuiWindowFlags_AlwaysAutoResize |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoFocusOnAppearing |
-            ImGuiWindowFlags_NoNav))
-        {
-
-            ImGui::Text("Scene Settings");//" | %s", ctx.gpuName.c_str());
-            ImGui::Separator();
-            ImGui::DragFloat("Sphere Radius", &sphereRadius, 0.005f, 0.0f, 1.0f);
-
-            ImGui::ColorEdit3("Sphere Color", (float*)&sphereColor);
-            ImGui::End();
-        }
-
-        //ImGui::ShowDemoWindow();
-
-        // 2. Acquire Image from Swapchain
+        // 3. ACQUIRE
         uint32_t imageIndex;
+        // Wait for the PREVIOUS frame to actually finish before we reset the fence
 
-        vkResetFences(ctx.device, 1, &renderFence);
-
-        VkResult result = vkAcquireNextImageKHR(ctx.device, ctx.swapchain, UINT64_MAX, VK_NULL_HANDLE, renderFence, &imageIndex);
+        VkResult result = vkAcquireNextImageKHR(ctx.device, ctx.swapchain, UINT64_MAX,
+                                               imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             ImGui::EndFrame();
+            vkDeviceWaitIdle(ctx.device);
             gpu.recreate_swapchain();
             continue;
         }
 
-        vkWaitForFences(ctx.device, 1, &renderFence, VK_TRUE, UINT64_MAX);
 
+        vkResetFences(ctx.device, 1, &renderFence);
 
-        // 3. START RECORDING (This fixes the "Recording State" error)
-        VkCommandBufferBeginInfo beginInfo = {};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        // 4. RECORDING
+        VkCommandBufferBeginInfo beginInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
         vkBeginCommandBuffer(ctx.commandBuffer, &beginInfo);
 
-        float timeValue = (float)glfwGetTime();
-
+        auto& state = gui.get_state();
         if (myScene.get_width() > 1) {
-            myScene.record_commands(ctx.commandBuffer, timeValue, sphereRadius, (float*)&sphereColor);
+            myScene.record_commands(ctx.commandBuffer, (float)glfwGetTime(),
+                                    state.sphereRadius, (float*)state.sphereColor);
         }
 
-        // 4. Start Render Pass
-        VkRenderPassBeginInfo rpInfo = {};
-        rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        // 5. RENDER PASS & UI DRAW
+        VkRenderPassBeginInfo rpInfo = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
         rpInfo.renderPass = ctx.renderPass;
         rpInfo.framebuffer = ctx.framebuffers[imageIndex];
         rpInfo.renderArea.extent = ctx.swapchainExtent;
@@ -164,45 +96,43 @@ int main() {
         rpInfo.pClearValues = &clearColor;
 
         vkCmdBeginRenderPass(ctx.commandBuffer, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        // 5. DRAW THE EDITOR (Must be inside the Begin/End block)
         editor.render(ctx.commandBuffer);
-
         vkCmdEndRenderPass(ctx.commandBuffer);
 
-        // 6. FINISH RECORDING
         vkEndCommandBuffer(ctx.commandBuffer);
 
-        // 7. Submit to GPU
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        // 6. SUBMIT & PRESENT
+        VkSubmitInfo submitInfo = { .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO };
+
+        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = &imageAvailableSemaphore; // Wait for Acquire to finish
+        submitInfo.pWaitDstStageMask = waitStages;
+
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &ctx.commandBuffer;
 
-        if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to submit draw command buffer!");
-        }
+        vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, renderFence);
 
-        // --- THIS IS THE PRESENT INFO AREA ---
-        VkPresentInfoKHR presentInfo = {};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        VkPresentInfoKHR presentInfo = { .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = &ctx.swapchain;
-        presentInfo.pImageIndices = &imageIndex; // The index we got from vkAcquireNextImageKHR
-        presentInfo.pResults = nullptr; // Optional
+        presentInfo.pImageIndices = &imageIndex;
 
-        // Flip the "Page" to the monitor
         vkQueuePresentKHR(ctx.graphicsQueue, &presentInfo);
 
-        // 8. Wait (Keep this for now so the CPU doesn't outrun the GPU)
+        // --- THE EMERGENCY BRAKE ---
+        // Keeps the CPU from running ahead of the GPU.
+        // Essential for single-threaded stability!
         vkDeviceWaitIdle(ctx.device);
     }
 
-    // 4. Cleanup
-    myScene.cleanup(ctx.device);
-    editor.shutdown(ctx.device);
+    vkDeviceWaitIdle(ctx.device); // One final wait to be safe
 
-    vkDestroyFence(ctx.device, renderFence, nullptr);
+    vkDestroySemaphore(ctx.device, imageAvailableSemaphore, nullptr);
+    vkDestroyFence(ctx.device, renderFence, nullptr); // Destroy fence ONCE
+    myScene.cleanup(ctx.device);                      // Cleanup scene ONCE
+    editor.shutdown(ctx.device);
     gpu.cleanup();
 
     return 0;
