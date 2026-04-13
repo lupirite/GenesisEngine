@@ -11,8 +11,8 @@ layout(push_constant) uniform Constants {
 };
 
 
-const int MAXRAYSTEPS = 500;
-const float EPSILON = .005;
+const int MAXRAYSTEPS = 50;
+const float EPSILON = .02;
 const float MAXRAYDIST = 10.;
 
 float smin( float a, float b, float k )
@@ -27,7 +27,7 @@ float getSphereDist(vec3 pos, float radius) {
 }
 
 float getDist(vec3 pos) {
-    float d1 = getSphereDist(pos-vec3(0., 0., 4.), sphereRadius);
+    float d1 = getSphereDist(pos-vec3(sin(time*2.)+.75, 0., 4.), sphereRadius);
     float d2 = getSphereDist(pos-vec3(1.05, 0., 3.8), .75);
     float d3 = smin(d1, d2, .05);
 
