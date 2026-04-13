@@ -55,6 +55,7 @@ namespace Genesis {
         vkb::Swapchain vkb_swapchain = swap_ret.value();
         context.swapchain = vkb_swapchain.swapchain;
         context.swapchainImages = vkb_swapchain.get_images().value();
+
         context.swapchainImageViews = vkb_swapchain.get_image_views().value();
         context.swapchainImageFormat = vkb_swapchain.image_format;
         context.swapchainExtent = vkb_swapchain.extent;
@@ -107,23 +108,25 @@ namespace Genesis {
             }
         }
 
-        VkCommandPoolCreateInfo poolInfo = {};
-        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.queueFamilyIndex = context.graphicsQueueFamily; // Make sure this is in your struct!
-        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        for (int i = 0; i < GpuContext::FRAME_OVERLAP; i++) {
+            VkCommandPoolCreateInfo poolInfo = {};
+            poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+            poolInfo.queueFamilyIndex = context.graphicsQueueFamily;
+            poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-        if (vkCreateCommandPool(context.device, &poolInfo, nullptr, &context.commandPool) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create command pool");
-        }
+            if (vkCreateCommandPool(context.device, &poolInfo, nullptr, &context.commandPools[i]) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to create command pool for frame " + std::to_string(i));
+            }
 
-        VkCommandBufferAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = context.commandPool;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = 1;
+            VkCommandBufferAllocateInfo allocInfo = {};
+            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            allocInfo.commandPool = context.commandPools[i];
+            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+            allocInfo.commandBufferCount = 1;
 
-        if (vkAllocateCommandBuffers(context.device, &allocInfo, &context.commandBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to allocate command buffers");
+            if (vkAllocateCommandBuffers(context.device, &allocInfo, &context.commandBuffers[i]) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to allocate command buffer for frame " + std::to_string(i));
+            }
         }
 
         // Create a Global Descriptor Pool for the whole engine
@@ -155,6 +158,11 @@ namespace Genesis {
         // 1. Wait for GPU to finish work
         vkDeviceWaitIdle(context.device);
 
+        for (auto s : context.presentSemaphores) vkDestroySemaphore(context.device, s, nullptr);
+        for (auto s : context.renderSemaphores) vkDestroySemaphore(context.device, s, nullptr);
+        context.presentSemaphores.clear();
+        context.renderSemaphores.clear();
+
         int width = 0, height = 0;
         glfwGetFramebufferSize(context.window, &width, &height);
 
@@ -168,6 +176,7 @@ namespace Genesis {
         for (auto framebuffer : context.framebuffers) {
             vkDestroyFramebuffer(context.device, framebuffer, nullptr);
         }
+        context.framebuffers.clear();
         for (auto imageView : context.swapchainImageViews) {
             vkDestroyImageView(context.device, imageView, nullptr);
         }
@@ -192,6 +201,10 @@ namespace Genesis {
         context.swapchainImageFormat = vkb_swapchain.image_format;
         context.swapchainExtent = vkb_swapchain.extent;
 
+        uint32_t imageCount = (uint32_t)context.swapchainImages.size();
+        context.presentSemaphores.resize(imageCount);
+        context.renderSemaphores.resize(imageCount);
+
         // 4. Re-create Framebuffers for the new images
         context.framebuffers.resize(context.swapchainImageViews.size());
         for (size_t i = 0; i < context.swapchainImageViews.size(); i++) {
@@ -214,7 +227,10 @@ namespace Genesis {
 
         vkDestroyDescriptorPool(context.device, context.descriptorPool, nullptr);
 
-        vkDestroyCommandPool(context.device, context.commandPool, nullptr);
+        // LOOP through the arrays for cleanup
+        for (int i = 0; i < GpuContext::FRAME_OVERLAP; i++) {
+            vkDestroyCommandPool(context.device, context.commandPools[i], nullptr);
+        }
 
         for (auto framebuffer : context.framebuffers) {
             vkDestroyFramebuffer(context.device, framebuffer, nullptr);

@@ -14,10 +14,22 @@ namespace Genesis {
         void draw_frame(GpuContext& ctx, SceneRenderer& scene, GenesisEditor& editor, EditorGUI& gui, GpuSystem& gpu);
 
     private:
-        VkFence _renderFence;
-        VkSemaphore _imageAvailableSemaphore;
+        static constexpr int FRAME_OVERLAP = 2;
+        int _frameNumber = 0; // Increments every frame
+
+        // Two of everything
+        VkFence _renderFences[FRAME_OVERLAP];
+        VkSemaphore _presentSemaphores[FRAME_OVERLAP];
+        VkSemaphore _renderSemaphores[FRAME_OVERLAP];
+
+        // Helper to get 0 or 1
+        int current_frame() { return _frameNumber % FRAME_OVERLAP; }
 
         // Helper for the resize logic
         void handle_swapchain_resize(GpuContext& ctx, GpuSystem& gpu);
+
+        void create_semaphores(GpuContext& ctx);
+
+        int current_frame() const { return _frameNumber % FRAME_OVERLAP; }
     };
 }

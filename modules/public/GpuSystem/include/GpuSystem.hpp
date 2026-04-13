@@ -13,8 +13,9 @@ namespace Genesis {
         VkPhysicalDevice physDevice;
         VkQueue graphicsQueue;
         uint32_t graphicsQueueFamily;
-        VkCommandPool commandPool;
-        VkCommandBuffer commandBuffer;
+        static constexpr int FRAME_OVERLAP = 2;
+        VkCommandPool commandPools[FRAME_OVERLAP];
+        VkCommandBuffer commandBuffers[FRAME_OVERLAP];
 
         VkSwapchainKHR swapchain;
         std::vector<VkImage> swapchainImages;
@@ -28,6 +29,9 @@ namespace Genesis {
         VkPhysicalDeviceProperties gpuProperties; // To check limits (max texture size, etc.)
 
         VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
+
+        std::vector<VkSemaphore> presentSemaphores;
+        std::vector<VkSemaphore> renderSemaphores;
     };
 
     class GpuSystem {
