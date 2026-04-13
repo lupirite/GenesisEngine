@@ -626,7 +626,7 @@ NK_API int nk_init(struct nk_context*, struct nk_allocator*, const struct nk_use
 */
 NK_API int nk_init_custom(struct nk_context*, struct nk_buffer *cmds, struct nk_buffer *pool, const struct nk_user_font*);
 /*/// #### nk_clear
-/// Resets the context state at the end of the frame. This includes mostly
+/// Resets the context state at the end of the frame. This include mostly
 /// garbage collector tasks like removing windows or table not called and therefore
 /// used anymore.
 ///
@@ -695,7 +695,7 @@ NK_API void nk_set_user_data(struct nk_context*, nk_handle handle);
 /// #### Usage
 /// Input state needs to be provided to nuklear by first calling `nk_input_begin`
 /// which resets internal state like delta mouse position and button transistions.
-/// After `nk_input_begin` all current input state needs to be provided. This includes
+/// After `nk_input_begin` all current input state needs to be provided. This include
 /// mouse motion, button and key pressed and released, text input and scrolling.
 /// Both event- or state-based input handling are supported by this API
 /// and should work without problems. Finally after all input state has been
@@ -929,7 +929,7 @@ NK_API void nk_input_end(struct nk_context*);
 ///
 /// #### Usage
 /// To draw all draw commands accumulated over a frame you need your own render
-/// backend able to draw a number of 2D primitives. This includes at least
+/// backend able to draw a number of 2D primitives. This include at least
 /// filled and stroked rectangles, circles, text, lines, triangles and scissors.
 /// As soon as this criterion is met you can iterate over each draw command
 /// and execute each draw command in a interpreter like fashion:
@@ -1079,7 +1079,7 @@ NK_API void nk_input_end(struct nk_context*);
 /// Finally while using draw commands makes sense for higher abstracted platforms like
 /// X11 and Win32 or drawing libraries it is often desirable to use graphics
 /// hardware directly. Therefore it is possible to just define
-/// `NK_INCLUDE_VERTEX_BUFFER_OUTPUT` which includes optional vertex output.
+/// `NK_INCLUDE_VERTEX_BUFFER_OUTPUT` which include optional vertex output.
 /// To access the vertex output you first have to convert all draw commands into
 /// vertexes by calling `nk_convert` which takes in your preferred vertex format.
 /// After successfully converting all draw commands just iterate over and execute all
@@ -25716,7 +25716,7 @@ nk_tooltipfv(struct nk_context *ctx, const char *fmt, va_list args)
 /// - 2016/08/07 (1.05.1) - Hopefully finally fixed combobox popup drawing bug.
 /// - 2016/08/07 (1.05.0) - Split varargs away from `NK_INCLUDE_STANDARD_IO` into own
 ///                        define `NK_INCLUDE_STANDARD_VARARGS` to allow more fine
-///                        grained controlled over library includes.
+///                        grained controlled over library include.
 /// - 2016/08/06 (1.04.5) - Changed memset calls to `NK_MEMSET`.
 /// - 2016/08/04 (1.04.4) - Fixed fast window scaling behavior.
 /// - 2016/08/04 (1.04.3) - Fixed window scaling, movement bug which appears if you

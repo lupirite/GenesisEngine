@@ -56,6 +56,8 @@ target_compile_options(GenesisND PRIVATE
         -Wno-unused-parameter  # Optional: depends on how much you hate warnings
 )
 
+target_compile_features(GenesisRenderer PUBLIC cxx_std_20)
+
 # Compiler Validation
 if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(AUTHOR_WARNING "Genesis Build System: Using ${CMAKE_CXX_COMPILER_ID}. Clang is recommended for bit-perfect cross-platform parity.")

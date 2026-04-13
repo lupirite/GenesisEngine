@@ -1717,7 +1717,7 @@ GLFWAPI void glfwWindowHint(int hint, int value);
  *
  *  The created window, framebuffer and context may differ from what you
  *  requested, as not all parameters and hints are
- *  [hard constraints](@ref window_hints_hard).  This includes the size of the
+ *  [hard constraints](@ref window_hints_hard).  This include the size of the
  *  window, especially for full screen windows.  To query the actual attributes
  *  of the created window, framebuffer and context, see @ref
  *  glfwGetWindowAttrib, @ref glfwGetWindowSize and @ref glfwGetFramebufferSize.
@@ -2193,7 +2193,7 @@ GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height)
 /*! @brief Retrieves the size of the frame of the window.
  *
  *  This function retrieves the size, in screen coordinates, of each edge of the
- *  frame of the specified window.  This size includes the title bar, if the
+ *  frame of the specified window.  This size include the title bar, if the
  *  window has one.  The size of the frame may vary depending on the
  *  [window-related hints](@ref window_hints_wnd) used to create it.
  *

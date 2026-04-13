@@ -76,7 +76,7 @@ body:
     id: repro_code
     attributes:
       label: "Minimal, Complete and Verifiable Example code:"
-      description: "Provide an [MCVE](https://stackoverflow.com/help/mcve) to demonstrate your problem. An ideal submission includes a small piece of code that anyone can paste into one of the examples applications (examples/*/main.cpp) or the demo (imgui_demo.cpp) to understand and reproduce it. Narrowing your problem to its shortest and purest form is the easiest way to understand it, explain it and fix it. Please test your shortened code to ensure it exhibits the problem. Often while creating the MCVE you will solve the problem! Many questions that are missing a standalone verifiable example are missing the actual cause of their issue in the description, which ends up wasting everyone's time."
+      description: "Provide an [MCVE](https://stackoverflow.com/help/mcve) to demonstrate your problem. An ideal submission include a small piece of code that anyone can paste into one of the examples applications (examples/*/main.cpp) or the demo (imgui_demo.cpp) to understand and reproduce it. Narrowing your problem to its shortest and purest form is the easiest way to understand it, explain it and fix it. Please test your shortened code to ensure it exhibits the problem. Often while creating the MCVE you will solve the problem! Many questions that are missing a standalone verifiable example are missing the actual cause of their issue in the description, which ends up wasting everyone's time."
       value: |
         ```cpp
         // Here's some code anyone can copy and paste to reproduce your issue

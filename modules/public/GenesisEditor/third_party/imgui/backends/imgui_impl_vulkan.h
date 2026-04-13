@@ -63,7 +63,7 @@
 #define NOMINMAX
 #endif
 
-// Vulkan includes
+// Vulkan include
 #ifdef IMGUI_IMPL_VULKAN_USE_VOLK
 #ifdef IMGUI_IMPL_VULKAN_VOLK_FILENAME
 #include IMGUI_IMPL_VULKAN_VOLK_FILENAME

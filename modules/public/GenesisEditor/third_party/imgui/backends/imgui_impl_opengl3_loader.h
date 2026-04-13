@@ -117,7 +117,7 @@ extern "C" {
 ** It should should be placed in the same directory as gl.h and
 ** included as <GL/glcorearb.h>.
 **
-** glcorearb.h includes only APIs in the latest OpenGL core profile
+** glcorearb.h include only APIs in the latest OpenGL core profile
 ** implementation together with APIs in newer ARB extensions which 
 ** can be supported by the core profile. It does not, and never will
 ** include functionality removed from the core profile, such as
@@ -761,7 +761,7 @@ static int open_libs(void)
     else
         close_libgl();
 
-    // Fall back to legacy libGL, which includes GLX
+    // Fall back to legacy libGL, which include GLX
     // While most systems use libGL.so.1, NetBSD seems to use that libGL.so.3. See https://github.com/ocornut/imgui/issues/6983
     libgl = dlopen("libGL.so", RTLD_LAZY | RTLD_LOCAL);
     if (!libgl)

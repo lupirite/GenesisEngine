@@ -2523,7 +2523,7 @@ GLFWAPI GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun callback);
  */
 GLFWAPI int glfwGetPlatform(void);
 
-/*! @brief Returns whether the library includes support for the specified platform.
+/*! @brief Returns whether the library include support for the specified platform.
  *
  *  This function returns whether the library was compiled with support for the specified
  *  platform.  The platform must be one of `GLFW_PLATFORM_WIN32`, `GLFW_PLATFORM_COCOA`,
@@ -3103,7 +3103,7 @@ GLFWAPI void glfwWindowHintString(int hint, const char* value);
  *
  *  The created window, framebuffer and context may differ from what you
  *  requested, as not all parameters and hints are
- *  [hard constraints](@ref window_hints_hard).  This includes the size of the
+ *  [hard constraints](@ref window_hints_hard).  This include the size of the
  *  window, especially for full screen windows.  To query the actual attributes
  *  of the created window, framebuffer and context, see @ref
  *  glfwGetWindowAttrib, @ref glfwGetWindowSize and @ref glfwGetFramebufferSize.
@@ -3665,7 +3665,7 @@ GLFWAPI void glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height)
 /*! @brief Retrieves the size of the frame of the window.
  *
  *  This function retrieves the size, in screen coordinates, of each edge of the
- *  frame of the specified window.  This size includes the title bar, if the
+ *  frame of the specified window.  This size include the title bar, if the
  *  window has one.  The size of the frame may vary depending on the
  *  [window-related hints](@ref window_hints_wnd) used to create it.
  *
@@ -5514,7 +5514,7 @@ GLFWAPI const float* glfwGetJoystickAxes(int jid, int* count);
  *  Each element in the array is either `GLFW_PRESS` or `GLFW_RELEASE`.
  *
  *  For backward compatibility with earlier versions that did not have @ref
- *  glfwGetJoystickHats, the button array also includes all hats, each
+ *  glfwGetJoystickHats, the button array also include all hats, each
  *  represented as four buttons.  The hats are in the same order as returned by
  *  __glfwGetJoystickHats__ and are in the order _up_, _right_, _down_ and
  *  _left_.  To disable these extra buttons, set the @ref

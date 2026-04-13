@@ -10,7 +10,7 @@ Index of this file:
 // [SECTION] Header mess
 // [SECTION] Forward declarations
 // [SECTION] Context pointer
-// [SECTION] STB libraries includes
+// [SECTION] STB libraries include
 // [SECTION] Macros
 // [SECTION] Generic helpers
 // [SECTION] ImDrawList support

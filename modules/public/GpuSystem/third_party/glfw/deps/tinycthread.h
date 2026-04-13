@@ -73,10 +73,10 @@ freely, subject to the following restrictions:
   #endif
 #endif
 
-/* Generic includes */
+/* Generic include */
 #include <time.h>
 
-/* Platform specific includes */
+/* Platform specific include */
 #if defined(_TTHREAD_POSIX_)
   #include <sys/time.h>
   #include <pthread.h>

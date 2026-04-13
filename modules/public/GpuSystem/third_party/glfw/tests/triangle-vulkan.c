@@ -1941,7 +1941,7 @@ static void demo_init_vk_swapchain(struct demo *demo) {
     err = vkGetPhysicalDeviceSurfaceFormatsKHR(demo->gpu, demo->surface,
                                                &formatCount, surfFormats);
     assert(!err);
-    // If the format list includes just one entry of VK_FORMAT_UNDEFINED,
+    // If the format list include just one entry of VK_FORMAT_UNDEFINED,
     // the surface has no preferred format.  Otherwise, at least one
     // supported format will be returned.
     if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {

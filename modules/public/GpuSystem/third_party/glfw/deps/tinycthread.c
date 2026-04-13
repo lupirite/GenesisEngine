@@ -30,7 +30,7 @@ freely, subject to the following restrictions:
 #include "tinycthread.h"
 #include <stdlib.h>
 
-/* Platform specific includes */
+/* Platform specific include */
 #if defined(_TTHREAD_POSIX_)
   #include <signal.h>
   #include <sched.h>
