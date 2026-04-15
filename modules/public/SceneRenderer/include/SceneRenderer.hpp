@@ -2,7 +2,15 @@
 #include "GpuSystem.hpp"
 #include <vulkan/vulkan.h>
 
+#include "RenderPayload.hpp"
+
 namespace Genesis {
+    struct SceneSnapshot : public IRenderPayload {
+        float sphereRadius;
+        float sphereColor[3];
+        // Future: std::vector<ObjectData> objects;
+    };
+
     class SceneRenderer {
     public:
         void init(GpuContext& ctx, uint32_t width, uint32_t height);
@@ -11,10 +19,12 @@ namespace Genesis {
         // This is what the Editor calls to show this scene in a window
         VkDescriptorSet get_descriptor_set() { return _descriptorSet; }
 
-        void record_commands(VkCommandBuffer cmd, float timeValue, float sphereRadius, float sphereColor[3]);
+        void record_commands(VkCommandBuffer cmd, const RenderPacket& packet);
 
         uint32_t get_width() const { return _width; }
         uint32_t get_height() const { return _height; }
+
+        // Inside SceneRenderer.hpp
 
     private:
         uint32_t find_memory_type(VkPhysicalDevice physDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);

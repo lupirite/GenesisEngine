@@ -65,9 +65,11 @@ void GenesisEditor::new_frame() {
     ImGui::NewFrame();
 }
 
-void GenesisEditor::render(VkCommandBuffer commandBuffer) {
-    ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+void GenesisEditor::render_explicit(VkCommandBuffer commandBuffer, ImDrawData* drawData) {
+    // Only record if we actually have valid draw data
+    if (drawData) {
+        ImGui_ImplVulkan_RenderDrawData(drawData, commandBuffer);
+    }
 }
 
 void GenesisEditor::shutdown(VkDevice device) {

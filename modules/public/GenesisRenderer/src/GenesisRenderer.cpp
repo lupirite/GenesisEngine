@@ -3,6 +3,10 @@
 #include <string>
 #include <GLFW/glfw3.h> // For glfwGetTime
 
+#include "imgui_impl_vulkan.h"
+
+#include <imgui.h>
+
 namespace Genesis {
 
     void GenesisRenderer::init(GpuContext& ctx) {
@@ -61,10 +65,21 @@ namespace Genesis {
         create_semaphores(ctx);
     }
 
-    void GenesisRenderer::draw_frame(GpuContext& ctx, SceneRenderer& scene, GenesisEditor& editor, EditorGUI& gui, GpuSystem& gpu) {
+    void GenesisRenderer::render_explicit(VkCommandBuffer cmd, ::ImDrawData* drawData) {
+        if (drawData) {
+            ImGui_ImplVulkan_RenderDrawData(drawData, cmd);
+        }
+    }
+
+    void GenesisRenderer::draw_frame(GpuContext& ctx, GpuSystem& gpu, SceneRenderer& scene, GenesisEditor& editor, const RenderPacket& packet) {
 
         if (ctx.presentSemaphores.empty() || ctx.renderSemaphores.empty()) {
             return;
+        }
+
+        // 0. Handle Window Resizes immediately from the packet flag
+        if (packet.needsResize) {
+            handle_swapchain_resize(ctx, gpu);
         }
 
         int i = _frameNumber % FRAME_OVERLAP;
@@ -78,33 +93,25 @@ namespace Genesis {
                                        ctx.presentSemaphores[i], VK_NULL_HANDLE, &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            ImGui::EndFrame();
+            // Note: ImGui::EndFrame is now handled by the packet producer
             handle_swapchain_resize(ctx, gpu);
-            // REMOVED: vkQueueSubmit line. It was causing the fence signal error.
-            return; // Just exit. The next frame loop will call vkWaitForFences on a fresh state.
+            return;
         }
 
-        // 3. Viewport Resize (Internal Scene)
-        auto resize = gui.check_resize(scene);
-        if (resize.needed) {
-            vkDeviceWaitIdle(ctx.device);
-            scene.cleanup(ctx.device);
-            scene.init(ctx, resize.width, resize.height);
-        }
-
-        // 4. Reset Fence - We are officially starting GPU work
+        // 3. Reset Fence
         vkResetFences(ctx.device, 1, &_renderFences[i]);
 
-        // 5. Recording
+        // 4. Recording
         VkCommandBuffer cmd = ctx.commandBuffers[i];
         VkCommandBufferBeginInfo beginInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
         vkBeginCommandBuffer(cmd, &beginInfo);
 
-        auto& state = gui.get_state();
-        // IMPORTANT: Use the command buffer 'cmd' for this frame, NOT ctx.commandBuffer
-        scene.record_commands(cmd, (float)glfwGetTime(), state.sphereRadius, (float*)state.sphereColor);
+        // --- GENESIS DECOUPLING START ---
+        // Instead of querying GUI or GLFW, we use the sealed packet data
+        scene.record_commands(cmd, packet);
+        // --- GENESIS DECOUPLING END ---
 
         VkRenderPassBeginInfo rpInfo = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
         rpInfo.renderPass = ctx.renderPass;
@@ -115,12 +122,15 @@ namespace Genesis {
         rpInfo.pClearValues = &clearColor;
 
         vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
-        editor.render(cmd);
+
+        // Pass the snapshot of the UI draw data to the editor
+        editor.render_explicit(cmd, packet.imguiDrawData);
+
         vkCmdEndRenderPass(cmd);
 
         vkEndCommandBuffer(cmd);
 
-        // 6. Submit
+        // 5. Submit
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
         VkSubmitInfo submit = { .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO };
         submit.waitSemaphoreCount = 1;
@@ -135,7 +145,7 @@ namespace Genesis {
             throw std::runtime_error("Failed to submit draw command buffer!");
         }
 
-        // 7. Present
+        // 6. Present
         VkPresentInfoKHR present = { .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
         present.waitSemaphoreCount = 1;
         present.pWaitSemaphores = &ctx.renderSemaphores[imageIndex];

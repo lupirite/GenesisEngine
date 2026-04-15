@@ -9,9 +9,10 @@ namespace Genesis {
     public:
         void init(GpuContext& ctx);
         void cleanup(GpuContext& ctx);
+        void render_explicit(VkCommandBuffer cmd, ::ImDrawData* drawData);
 
         // This replaces the messy main loop logic
-        void draw_frame(GpuContext& ctx, SceneRenderer& scene, GenesisEditor& editor, EditorGUI& gui, GpuSystem& gpu);
+        void draw_frame(GpuContext& ctx, GpuSystem& gpu, SceneRenderer& scene, GenesisEditor& editor, const RenderPacket& packet);
 
     private:
         static constexpr int FRAME_OVERLAP = 2;

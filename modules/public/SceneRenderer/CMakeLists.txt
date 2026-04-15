@@ -6,6 +6,7 @@ project(SceneRenderer)
 add_library(SceneRenderer STATIC
         src/SceneRenderer.cpp
         include/SceneRenderer.hpp
+        include/RenderPayload.hpp
 )
 
 # 2. THE FIX: Include Paths

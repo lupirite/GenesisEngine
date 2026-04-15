@@ -247,7 +247,14 @@ namespace Genesis {
         vkDestroyShaderModule(device, fragModule, nullptr);
     }
 
-    void SceneRenderer::record_commands(VkCommandBuffer cmd, float timeValue, float sphereRadius, float sphereColor[3]) {
+    // Change: Function now takes the RenderPacket instead of raw floats
+    void SceneRenderer::record_commands(VkCommandBuffer cmd, const RenderPacket& packet) {
+
+        // 1. Recover your specific "Sphere" data from the generic payload
+        // This is the "Inversion of Control" step
+        auto* snapshot = static_cast<SceneSnapshot*>(packet.scenePayload.get());
+        if (!snapshot) return;
+
         VkRenderPassBeginInfo rpInfo = {};
         rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         rpInfo.renderPass = _renderPass;
@@ -255,26 +262,24 @@ namespace Genesis {
         rpInfo.renderArea.offset = { 0, 0 };
         rpInfo.renderArea.extent = { _width, _height };
 
-        // Let's go with a nice Genesis Purple/Blue for testing
         VkClearValue clearColor = {{{ 0.1f, 0.0f, 0.0f, 1.0f }}};
         rpInfo.clearValueCount = 1;
         rpInfo.pClearValues = &clearColor;
 
-        // The "Inline" contents mean we are providing commands directly here
-        // rather than using secondary command buffers.
         vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        // Bind our shader pipeline
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
 
+        // 2. Map data from the packet/snapshot to the GPU ShaderConstants
         ShaderConstants constants;
-        constants.time = timeValue;
+        constants.time = packet.time; // From the generic part of the packet
         constants.width = (float)_width;
         constants.height = (float)_height;
-        constants.sphereRadius = sphereRadius;
-        constants.sphereColor[0] = sphereColor[0];
-        constants.sphereColor[1] = sphereColor[1];
-        constants.sphereColor[2] = sphereColor[2];
+
+        // These come from the "Specific" part of the snapshot
+        constants.sphereRadius = snapshot->sphereRadius;
+        constants.sphereColor[0] = snapshot->sphereColor[0];
+        constants.sphereColor[1] = snapshot->sphereColor[1];
+        constants.sphereColor[2] = snapshot->sphereColor[2];
 
         vkCmdPushConstants(
             cmd,
@@ -285,7 +290,6 @@ namespace Genesis {
             &constants
         );
 
-        // Draw 3 vertices (our giant triangle)
         vkCmdDraw(cmd, 3, 1, 0, 0);
 
         vkCmdEndRenderPass(cmd);

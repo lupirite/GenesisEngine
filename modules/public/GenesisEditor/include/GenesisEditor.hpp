@@ -4,6 +4,8 @@
 #include "GpuSystem.hpp"
 #include "imgui.h"
 
+struct ImDrawData;
+
 namespace Genesis {
 
     class GenesisEditor {
@@ -15,7 +17,8 @@ namespace Genesis {
 
         // Call these every frame in your main loop
         void new_frame();
-        void render(VkCommandBuffer commandBuffer);
+
+        void render_explicit(VkCommandBuffer cmd, ::ImDrawData* drawData);
 
     private:
         VkDescriptorPool imguiPool = VK_NULL_HANDLE;
