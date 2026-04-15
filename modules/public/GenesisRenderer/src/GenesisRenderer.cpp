@@ -82,7 +82,7 @@ namespace Genesis {
             handle_swapchain_resize(ctx, gpu);
         }
 
-        int i = _frameNumber % FRAME_OVERLAP;
+        int i = _frameNumber % MAX_FRAMES_IN_FLIGHT;
 
         // 1. Wait for this specific frame's slot to be ready
         vkWaitForFences(ctx.device, 1, &_renderFences[i], VK_TRUE, UINT64_MAX);

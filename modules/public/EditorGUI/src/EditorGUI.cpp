@@ -19,12 +19,13 @@ namespace Genesis {
         viewportWidth = viewportPanelSize.x;
         viewportHeight = viewportPanelSize.y;
 
-        if (sceneTextureID) {
-            // This is the ONLY place we should draw the image
+        if (sceneTextureID != (ImTextureID)0) {
+            // We have a valid descriptor set, safe to draw
             ImGui::Image(sceneTextureID, ImVec2(viewportWidth, viewportHeight));
         } else {
-            ImGui::Text("No Scene Texture Linked");
-            ImGui::Text("Check if update_texture_descriptor was called.");
+            // The Render Thread has invalidated the texture for a resize
+            ImGui::Text("Viewport Busy...");
+            ImGui::Text("(Rebuilding Vulkan Resources)");
         }
 
         ImGui::End();
@@ -34,20 +35,38 @@ namespace Genesis {
         VkImageView newView = scene.get_output_view();
         VkSampler newSampler = scene.get_sampler();
 
-        if (newView == VK_NULL_HANDLE || newSampler == VK_NULL_HANDLE) {
-            return;
-        }
-
+        if (newView == VK_NULL_HANDLE || newSampler == VK_NULL_HANDLE) return;
         if (newView == lastRegisteredView) return;
 
-        // Assign the new ID. This should only happen when the view actually changes!
-        sceneTextureID = (ImTextureID)(intptr_t)ImGui_ImplVulkan_AddTexture(
-            newSampler,
-            newView,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        );
+        // 1. Create the descriptor set ONLY ONCE
+        if (sceneDescriptorSet == VK_NULL_HANDLE) {
+            sceneDescriptorSet = (VkDescriptorSet)ImGui_ImplVulkan_AddTexture(
+                newSampler, newView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+        else {
+            // 2. REUSE the existing descriptor set by updating it
+            VkDescriptorImageInfo desc_image[1] = {};
+            desc_image[0].sampler = newSampler;
+            desc_image[0].imageView = newView;
+            desc_image[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+            VkWriteDescriptorSet write_desc[1] = {};
+            write_desc[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_desc[0].dstSet = sceneDescriptorSet;
+            write_desc[0].descriptorCount = 1;
+            write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write_desc[0].pImageInfo = desc_image;
+
+            vkUpdateDescriptorSets(ctx.device, 1, write_desc, 0, nullptr);
+        }
+
+        sceneTextureID = (ImTextureID)sceneDescriptorSet;
         lastRegisteredView = newView;
+    }
+
+    void EditorGUI::invalidate_texture() {
+        // We keep the sceneDescriptorSet handle, just mark the view as dirty
+        lastRegisteredView = VK_NULL_HANDLE;
     }
 
     void EditorGUI::draw_stats_overlay() {

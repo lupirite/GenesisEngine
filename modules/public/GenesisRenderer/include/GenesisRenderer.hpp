@@ -14,6 +14,9 @@ namespace Genesis {
         // This replaces the messy main loop logic
         void draw_frame(GpuContext& ctx, GpuSystem& gpu, SceneRenderer& scene, GenesisEditor& editor, const RenderPacket& packet);
 
+        static constexpr int MAX_FRAMES_IN_FLIGHT = 2; // Match your FRAME_OVERLAP value
+        VkFence& get_fence(int index) { return _renderFences[index]; }
+
     private:
         static constexpr int FRAME_OVERLAP = 2;
         int _frameNumber = 0; // Increments every frame

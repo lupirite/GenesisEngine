@@ -17,6 +17,8 @@
 #include <queue>
 #include <atomic>
 
+#define LOG_GRAPHICS 0
+
 // Global or static flag for window resizing
 bool g_FramebufferResized = false;
 
@@ -55,20 +57,41 @@ void render_thread_worker(Genesis::GpuContext& ctx,
         // 2. Handle Scene Resizing (Thread-Safe logic)
         // We do this BEFORE drawing so the texture is ready for the current frame
         if (packet.needsResize) {
+            std::lock_guard<std::mutex> lock(g_ImGuiMutex);
+            if (LOG_GRAPHICS) printf("[RENDER THREAD] Mutex Locked. Invalidating texture...\n");
+
+            if (LOG_GRAPHICS) printf("[RENDER THREAD] Starting Resize. Waiting for Idle...\n");
+            // 1. Wait for the entire GPU to finish current work
             vkDeviceWaitIdle(ctx.device);
+
+            // 2. Invalidate UI so Main Thread doesn't try to draw the "Ghost"
+            gui.invalidate_texture();
+
+            {
+                std::lock_guard<std::mutex> qLock(g_QueueMutex);
+                while(!g_PacketQueue.empty()) {
+                    g_PacketQueue.pop();
+                    g_PacketsInFlight--;
+                }
+            }
+
+            // 3. THE FLUSH: Wait for all frame slots to be officially done
+            for (int i = 0; i < Genesis::GenesisRenderer::MAX_FRAMES_IN_FLIGHT; i++) {
+                vkWaitForFences(ctx.device, 1, &renderer.get_fence(i), VK_TRUE, UINT64_MAX);
+            }
 
             int w, h;
             glfwGetFramebufferSize(ctx.window, &w, &h);
 
+            // 4. Safe to destroy now—nothing is using the old sampler!
+            if (LOG_GRAPHICS) printf("[RENDER THREAD] Cleaning up Scene. Destroying Sampler: %p\n", (void*)scene.get_sampler());
             scene.cleanup(ctx.device);
             scene.init(ctx, (uint32_t)w, (uint32_t)h);
 
-            // Update the descriptor HERE while the GPU is idle and
-            // we have the ImGui lock.
-            {
-                std::lock_guard<std::mutex> lock(g_ImGuiMutex);
-                gui.update_texture_descriptor(scene, ctx);
-            }
+            if (LOG_GRAPHICS) printf("[RENDER THREAD] Scene Re-init. New Sampler: %p\n", (void*)scene.get_sampler());
+
+            gui.update_texture_descriptor(scene, ctx);
+            if (LOG_GRAPHICS) printf("[RENDER THREAD] Resize Complete. Mutex Released.\n");
         }
 
         // 3. The heavy Vulkan work
@@ -150,8 +173,18 @@ int main() {
             // --- THE STABILIZER ---
             // If the worker just finished a resize, the scene is ready.
             // We link it here on the Main Thread where ImGui is active.
+            if (LOG_GRAPHICS) printf("[MAIN THREAD] Rendering UI. Current sceneTextureID: %p\n", (void*)gui.get_scene_texture_id());
 
-            gui.render_ui(myScene, ctx);
+            // SAFETY CHECK: Only render the scene viewport if we have a valid handle
+            if (gui.get_scene_texture_id() != (ImTextureID)0) {
+                gui.render_ui(myScene, ctx);
+            } else {
+                // Fallback UI so the window isn't just a black void during init
+                ImGui::Begin("Scene Viewport");
+                ImGui::Text("Initializing Genesis Renderer...");
+                ImGui::End();
+            }
+
             ImGui::Render();
         }
 

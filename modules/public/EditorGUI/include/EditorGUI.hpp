@@ -18,6 +18,8 @@ namespace Genesis {
 
     class EditorGUI {
     public:
+        ImTextureID get_scene_texture_id() const { return sceneTextureID; }
+
         ResizeRequest check_resize(SceneRenderer& scene); // New function
         void render_ui(SceneRenderer& scene, const GpuContext& ctx); // Keep this for drawing
 
@@ -25,7 +27,10 @@ namespace Genesis {
 
         void update_texture_descriptor(SceneRenderer& scene, const GpuContext& ctx);
 
+        void invalidate_texture();
+
     private:
+        VkDescriptorSet sceneDescriptorSet = VK_NULL_HANDLE;
         ImTextureID sceneTextureID = (ImTextureID)0;
         EditorState _state;
         ImVec2 _lastViewportSize = ImVec2(0, 0);

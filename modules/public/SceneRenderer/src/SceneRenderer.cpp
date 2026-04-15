@@ -125,7 +125,6 @@ namespace Genesis {
 
         // 4. Register with ImGui (This is the "Magic" part)
         // We use the helper function from the ImGui Vulkan backend
-        _descriptorSet = ImGui_ImplVulkan_AddTexture(_sampler, _imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
         // 1. Define the Attachment (Our private texture)
         VkAttachmentDescription colorAttachment = {};
