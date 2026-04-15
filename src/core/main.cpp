@@ -40,6 +40,10 @@ void render_thread_worker(Genesis::GpuContext& ctx,
                           Genesis::GenesisEditor& editor,
                           Genesis::EditorGUI& gui) {
 
+    double lastTime = glfwGetTime();
+    int frameCount = 0;
+    double fps = 0;
+
     while (g_Running) {
         Genesis::RenderPacket packet;
 
@@ -100,6 +104,15 @@ void render_thread_worker(Genesis::GpuContext& ctx,
             std::lock_guard<std::mutex> lock(g_ImGuiMutex); // This is safe as long as Main thread releases it
             renderer.draw_frame(ctx, gpu, scene, editor, packet);
         }
+
+        frameCount++;
+        double currentTime = glfwGetTime();
+        if (currentTime - lastTime >= 1.0) { // Update every second
+            fps = double(frameCount) / (currentTime - lastTime);
+            printf("[RENDER FPS] %.2f\n", fps);
+            frameCount = 0;
+            lastTime = currentTime;
+        }
         // After the lock is released, decrement packets in flight
         g_PacketsInFlight--;
     }
@@ -157,8 +170,8 @@ int main() {
 
         // 1. Throttle (Backpressure)
         // If we have more than 2 frames waiting, just wait a millisecond
-        if (g_PacketsInFlight >= 2) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        if (g_PacketsInFlight >= 3) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(0));
             continue;
         }
 
