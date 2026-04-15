@@ -26,7 +26,11 @@ namespace Genesis {
 
         // Inside SceneRenderer.hpp
 
+        VkImageView get_output_view() const { return _imageView; }
+        VkSampler get_sampler() const { return _sampler; }
+
     private:
+
         uint32_t find_memory_type(VkPhysicalDevice physDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
         void create_image_resources(GpuContext& ctx, uint32_t width, uint32_t height);
 

@@ -12,7 +12,7 @@ layout(push_constant) uniform Constants {
 
 
 const int MAXRAYSTEPS = 50;
-const float EPSILON = .02;
+const float EPSILON = .01;
 const float MAXRAYDIST = 10.;
 
 float smin( float a, float b, float k )

@@ -1,32 +1,53 @@
 #include "EditorGUI.hpp"
 
+#include <imgui_impl_vulkan.h>
+
 namespace Genesis {
-    void EditorGUI::render_ui(SceneRenderer& scene, GpuContext& ctx) {
+    void EditorGUI::render_ui(SceneRenderer& scene, const GpuContext& ctx) {
+        // Draw the Stats first
         draw_stats_overlay();
         draw_scene_settings();
-        draw_viewport(scene, ctx);
+
+        // Now draw the Viewport
+        ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Viewport");
+
+        // Capture size for the next frame's check_resize
+        ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+        _lastViewportSize = viewportPanelSize;
+
+        viewportWidth = viewportPanelSize.x;
+        viewportHeight = viewportPanelSize.y;
+
+        if (sceneTextureID) {
+            // This is the ONLY place we should draw the image
+            ImGui::Image(sceneTextureID, ImVec2(viewportWidth, viewportHeight));
+        } else {
+            ImGui::Text("No Scene Texture Linked");
+            ImGui::Text("Check if update_texture_descriptor was called.");
+        }
+
+        ImGui::End();
     }
 
-    void EditorGUI::draw_viewport(SceneRenderer& scene, GpuContext& ctx) {
-        ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowPos(ImVec2(400, 10), ImGuiCond_FirstUseEver);
+    void EditorGUI::update_texture_descriptor(SceneRenderer& scene, const GpuContext& ctx) {
+        VkImageView newView = scene.get_output_view();
+        VkSampler newSampler = scene.get_sampler();
 
-        if (ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoBringToFrontOnFocus)) {
-            ImVec2 currentSize = ImGui::GetContentRegionAvail();
-
-            // Handle Resize
-            if (currentSize.x > 0.1f && currentSize.y > 0.1f) {
-                if ((uint32_t)currentSize.x != scene.get_width() || (uint32_t)currentSize.y != scene.get_height()) {
-                    vkDeviceWaitIdle(ctx.device);
-                    scene.cleanup(ctx.device);
-                    scene.init(ctx, (uint32_t)currentSize.x, (uint32_t)currentSize.y);
-                }
-            }
-            ImGui::Image((ImTextureID)scene.get_descriptor_set(), currentSize);
-
-            _lastViewportSize = currentSize;
+        if (newView == VK_NULL_HANDLE || newSampler == VK_NULL_HANDLE) {
+            return;
         }
-        ImGui::End();
+
+        if (newView == lastRegisteredView) return;
+
+        // Assign the new ID. This should only happen when the view actually changes!
+        sceneTextureID = (ImTextureID)(intptr_t)ImGui_ImplVulkan_AddTexture(
+            newSampler,
+            newView,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        );
+
+        lastRegisteredView = newView;
     }
 
     void EditorGUI::draw_stats_overlay() {
