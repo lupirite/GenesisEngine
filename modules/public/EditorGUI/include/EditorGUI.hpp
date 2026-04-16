@@ -18,6 +18,9 @@ namespace Genesis {
 
     class EditorGUI {
     public:
+        void set_cpu_time(float ms) { m_cpuTime = ms; }
+        void set_render_time(float ms) { m_renderTime = ms; }
+
         ImTextureID get_scene_texture_id() const { return sceneTextureID; }
 
         ResizeRequest check_resize(SceneRenderer& scene); // New function
@@ -30,6 +33,9 @@ namespace Genesis {
         void invalidate_texture();
 
     private:
+        float m_cpuTime = 0.0f;
+        float m_renderTime = 0.0f;
+
         VkDescriptorSet sceneDescriptorSet = VK_NULL_HANDLE;
         ImTextureID sceneTextureID = (ImTextureID)0;
         EditorState _state;

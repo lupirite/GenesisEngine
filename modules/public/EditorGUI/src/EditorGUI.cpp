@@ -71,16 +71,38 @@ namespace Genesis {
 
     void EditorGUI::draw_stats_overlay() {
         ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
-        ImGui::SetNextWindowBgAlpha(0.35f);
+        ImGui::SetNextWindowBgAlpha(0.5f); // Slightly darker for readability
+
         if (ImGui::Begin("Stats Overlay", nullptr,
             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
             ImGuiWindowFlags_NoNav))
         {
-            ImGui::Text("Genesis");
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "GENESIS PROFILER");
             ImGui::Separator();
-            ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-            ImGui::Text("Frame Time: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+
+            // 1. Thread Performance
+            ImGui::Text("Main Thread (Logic):  %.3f ms", m_cpuTime);
+            ImGui::Text("Render Thread (Sub): %.3f ms", m_renderTime);
+
+            // 2. GPU Estimate (Until we add QueryPools)
+            float totalFrame = (m_cpuTime > m_renderTime) ? m_cpuTime : m_renderTime;
+            ImGui::Text("Estimated Latency:   %.1f ms", totalFrame);
+
+            ImGui::Separator();
+
+            // 3. FPS Counters
+            float mainFps = ImGui::GetIO().Framerate;
+            ImGui::Text("UI Update Rate:      %.1f FPS", mainFps);
+
+            // Visual indicator for "The Budget"
+            // 60 FPS = 16.6ms budget.
+            float budgetProgress = m_renderTime / 16.66f;
+            ImVec4 barColor = ImVec4(budgetProgress, 1.0f - budgetProgress, 0.0f, 1.0f);
+            ImGui::ProgressBar(budgetProgress, ImVec2(-1.0f, 0.0f), "");
+            ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
+            ImGui::Text("GPU Budget");
+
             ImGui::End();
         }
     }

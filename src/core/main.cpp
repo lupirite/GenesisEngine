@@ -40,10 +40,6 @@ void render_thread_worker(Genesis::GpuContext& ctx,
                           Genesis::GenesisEditor& editor,
                           Genesis::EditorGUI& gui) {
 
-    double lastTime = glfwGetTime();
-    int frameCount = 0;
-    double fps = 0;
-
     while (g_Running) {
         Genesis::RenderPacket packet;
 
@@ -57,6 +53,8 @@ void render_thread_worker(Genesis::GpuContext& ctx,
             packet = std::move(g_PacketQueue.front());
             g_PacketQueue.pop();
         }
+
+        auto renderStart = std::chrono::high_resolution_clock::now();
 
         // 2. Handle Scene Resizing (Thread-Safe logic)
         // We do this BEFORE drawing so the texture is ready for the current frame
@@ -89,12 +87,17 @@ void render_thread_worker(Genesis::GpuContext& ctx,
 
             // 4. Safe to destroy now—nothing is using the old sampler!
             if (LOG_GRAPHICS) printf("[RENDER THREAD] Cleaning up Scene. Destroying Sampler: %p\n", (void*)scene.get_sampler());
-            scene.cleanup(ctx.device);
-            scene.init(ctx, (uint32_t)w, (uint32_t)h);
 
-            if (LOG_GRAPHICS) printf("[RENDER THREAD] Scene Re-init. New Sampler: %p\n", (void*)scene.get_sampler());
 
-            gui.update_texture_descriptor(scene, ctx);
+            // SAFETY: If minimized or 0, don't try to recreate Vulkan objects
+            if (w > 0 && h > 0) {
+                scene.cleanup(ctx.device);
+                scene.init(ctx, (uint32_t)w, (uint32_t)h);
+                gui.update_texture_descriptor(scene, ctx);
+            } else {
+                if (LOG_GRAPHICS) printf("[RENDER THREAD] Skip resize: Window is 0x0\n");
+            }
+
             if (LOG_GRAPHICS) printf("[RENDER THREAD] Resize Complete. Mutex Released.\n");
         }
 
@@ -105,14 +108,10 @@ void render_thread_worker(Genesis::GpuContext& ctx,
             renderer.draw_frame(ctx, gpu, scene, editor, packet);
         }
 
-        frameCount++;
-        double currentTime = glfwGetTime();
-        if (currentTime - lastTime >= 1.0) { // Update every second
-            fps = double(frameCount) / (currentTime - lastTime);
-            printf("[RENDER FPS] %.2f\n", fps);
-            frameCount = 0;
-            lastTime = currentTime;
-        }
+        auto renderEnd = std::chrono::high_resolution_clock::now();
+        float lastRenderTime = std::chrono::duration<float, std::milli>(renderEnd - renderStart).count();
+        gui.set_render_time(lastRenderTime);
+
         // After the lock is released, decrement packets in flight
         g_PacketsInFlight--;
     }
@@ -135,6 +134,13 @@ int main() {
     Genesis::EditorGUI gui;
     Genesis::SceneRenderer myScene;
     myScene.init(ctx, 1280, 720);
+
+    int w, h;
+    glfwGetFramebufferSize(ctx.window, &w, &h);
+    while (w == 0 || h == 0) {
+        glfwGetFramebufferSize(ctx.window, &w, &h);
+        glfwPollEvents();
+    }
 
     std::jthread renderThread(render_thread_worker,
                           std::ref(ctx),
@@ -166,6 +172,7 @@ int main() {
     }
 
     while (!glfwWindowShouldClose(ctx.window)) {
+
         glfwPollEvents();
 
         // 1. Throttle (Backpressure)
@@ -174,6 +181,8 @@ int main() {
             std::this_thread::sleep_for(std::chrono::milliseconds(0));
             continue;
         }
+
+        auto logicStart = std::chrono::high_resolution_clock::now();
 
         // 2. Check for UI-driven resizes
         auto resizeStatus = gui.check_resize(myScene);
@@ -223,6 +232,10 @@ int main() {
             g_PacketQueue.push(std::move(packet));
             g_PacketsInFlight++;
         }
+
+        auto logicEnd = std::chrono::high_resolution_clock::now();
+        gui.set_cpu_time(std::chrono::duration<float, std::milli>(logicEnd - logicStart).count());
+
         g_QueueSignal.notify_one();
     }
 
