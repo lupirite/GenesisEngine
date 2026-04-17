@@ -92,7 +92,7 @@ void render_thread_worker(Genesis::GpuContext& ctx,
             // SAFETY: If minimized or 0, don't try to recreate Vulkan objects
             if (w > 0 && h > 0) {
                 scene.cleanup(ctx.device);
-                scene.init(ctx, (uint32_t)w, (uint32_t)h);
+                scene.init(ctx, packet.width, packet.height);
                 gui.update_texture_descriptor(scene, ctx);
             } else {
                 if (LOG_GRAPHICS) printf("[RENDER THREAD] Skip resize: Window is 0x0\n");
@@ -105,7 +105,13 @@ void render_thread_worker(Genesis::GpuContext& ctx,
         // All command recording and queue submission happens here
         {
             std::lock_guard<std::mutex> lock(g_ImGuiMutex); // This is safe as long as Main thread releases it
-            renderer.draw_frame(ctx, gpu, scene, editor, packet);
+            int checkW, checkH;
+            glfwGetFramebufferSize(ctx.window, &checkW, &checkH);
+
+            // Only draw if the window is actually visible
+            if (checkW > 0 && checkH > 0) {
+                renderer.draw_frame(ctx, gpu, scene, editor, packet);
+            }
         }
 
         auto renderEnd = std::chrono::high_resolution_clock::now();
@@ -135,13 +141,6 @@ int main() {
     Genesis::SceneRenderer myScene;
     myScene.init(ctx, 1280, 720);
 
-    int w, h;
-    glfwGetFramebufferSize(ctx.window, &w, &h);
-    while (w == 0 || h == 0) {
-        glfwGetFramebufferSize(ctx.window, &w, &h);
-        glfwPollEvents();
-    }
-
     std::jthread renderThread(render_thread_worker,
                           std::ref(ctx),
                           std::ref(gpu),
@@ -153,8 +152,13 @@ int main() {
     g_FramebufferResized = true;
 
     {
+        int startW, startH;
+        glfwGetFramebufferSize(ctx.window, &startW, &startH);
+
         Genesis::RenderPacket setupPacket;
         setupPacket.needsResize = true; // Force descriptor link
+        setupPacket.width = (uint32_t)startW;
+        setupPacket.height = (uint32_t)startH;
         setupPacket.scenePayload = std::make_unique<Genesis::SceneSnapshot>();
 
         {
@@ -172,6 +176,14 @@ int main() {
     }
 
     while (!glfwWindowShouldClose(ctx.window)) {
+        int curW, curH;
+        glfwGetFramebufferSize(ctx.window, &curW, &curH);
+
+        // IF MINIMIZED: Pause the engine and wait for the OS to restore us
+        if (curW == 0 || curH == 0) {
+            glfwWaitEvents(); // This is the magic fix for focus issues
+            continue;
+        }
 
         glfwPollEvents();
 
@@ -181,6 +193,33 @@ int main() {
             std::this_thread::sleep_for(std::chrono::milliseconds(0));
             continue;
         }
+
+        // 2. RE-SYNC CHECK: If we just came back from minimized
+    // We need to make sure the Render Thread has handled the new size
+    // before we try to use the texture ID in render_ui()
+    if (g_FramebufferResized) {
+        int w, h;
+        glfwGetFramebufferSize(ctx.window, &w, &h);
+
+        Genesis::RenderPacket wakeupPacket;
+        wakeupPacket.needsResize = true;
+        wakeupPacket.width = (uint32_t)w;
+        wakeupPacket.height = (uint32_t)h;
+        wakeupPacket.scenePayload = std::make_unique<Genesis::SceneSnapshot>();
+
+        {
+            std::lock_guard<std::mutex> lock(g_QueueMutex);
+            g_PacketQueue.push(std::move(wakeupPacket));
+            g_PacketsInFlight++;
+        }
+        g_QueueSignal.notify_one();
+
+        // IMPORTANT: Let the Render Thread finish the resize before the Main Thread continues
+        while (g_PacketsInFlight > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        g_FramebufferResized = false;
+    }
 
         auto logicStart = std::chrono::high_resolution_clock::now();
 
@@ -215,6 +254,8 @@ int main() {
         packet.time = (float)glfwGetTime();
         packet.imguiDrawData = ImGui::GetDrawData();
         packet.needsResize = g_FramebufferResized || resizeStatus.needed;
+        packet.width = resizeStatus.width;
+        packet.height = resizeStatus.height;
         g_FramebufferResized = false;
 
         // ... Populate Snapshot ...
