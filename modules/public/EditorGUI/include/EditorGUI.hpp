@@ -12,8 +12,8 @@ namespace Genesis {
 
     struct ResizeRequest {
         bool needed = false;
-        uint32_t width;
-        uint32_t height;
+        uint32_t width = 0;
+        uint32_t height = 0;
     };
 
     class EditorGUI {
@@ -23,7 +23,7 @@ namespace Genesis {
 
         ImTextureID get_scene_texture_id() const { return sceneTextureID; }
 
-        ResizeRequest check_resize(SceneRenderer& scene); // New function
+        ResizeRequest check_resize(SceneRenderer& scene, bool isCommit); // New function
         void render_ui(SceneRenderer& scene, const GpuContext& ctx); // Keep this for drawing
 
         const EditorState& get_state() const { return _state; }

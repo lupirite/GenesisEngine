@@ -121,20 +121,25 @@ namespace Genesis {
         }
     }
 
-    ResizeRequest EditorGUI::check_resize(SceneRenderer& scene) {
+    ResizeRequest EditorGUI::check_resize(SceneRenderer& scene, bool isCommit) {
         ResizeRequest request;
+        ImVec2 currentSize = _lastViewportSize;
 
-        // We need to 'peek' at the window size before drawing it
-        // Or we can use the size from the PREVIOUS frame
-        ImVec2 currentSize = _lastViewportSize; // Store this during render_ui
-
+        // 1. Safety check to ensure we have a valid viewport
         if (currentSize.x > 0.1f && currentSize.y > 0.1f) {
-            if ((uint32_t)currentSize.x != scene.get_width() ||
-                (uint32_t)currentSize.y != scene.get_height()) {
-                request.needed = true;
-                request.width = (uint32_t)currentSize.x;
-                request.height = (uint32_t)currentSize.y;
+
+            // 2. Always report the current window size.
+            // The renderer needs this every frame to set the VkViewport correctly.
+            request.width = (uint32_t)currentSize.x;
+            request.height = (uint32_t)currentSize.y;
+
+            // 3. Only trigger the "Heavy" re-allocation if we have a 'Commit'
+            // (mouse released) AND the resolution actually changed.
+            if (isCommit) {
+                if (request.width != scene.get_width() || request.height != scene.get_height()) {
+                    request.needed = true;
                 }
+            }
         }
         return request;
     }

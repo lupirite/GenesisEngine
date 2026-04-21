@@ -38,31 +38,21 @@ namespace Genesis {
     }
 
     void GenesisRenderer::handle_swapchain_resize(GpuContext& ctx, GpuSystem& gpu) {
+        // 1. Wait for the GPU to finish all pending work before we tear down the output buffers
         vkDeviceWaitIdle(ctx.device);
 
-        // 1. Safe Cleanup of old semaphores
-        for (auto& s : ctx.presentSemaphores) {
-            if (s != VK_NULL_HANDLE) {
-                vkDestroySemaphore(ctx.device, s, nullptr);
-                s = VK_NULL_HANDLE;
-            }
-        }
-        for (auto& s : ctx.renderSemaphores) {
-            if (s != VK_NULL_HANDLE) {
-                vkDestroySemaphore(ctx.device, s, nullptr);
-                s = VK_NULL_HANDLE;
-            }
-        }
-
-        // Clear the vectors so create_semaphores starts fresh
-        ctx.presentSemaphores.clear();
-        ctx.renderSemaphores.clear();
-
-        // 2. Rebuild hardware
+        // 2. Rebuild the Swapchain
+        // This calls the low-level Vulkan functions to destroy the old VkSwapchainKHR,
+        // query the new window dimensions, and create the new VkImages.
         gpu.recreate_swapchain();
 
-        // 3. Re-create for the new image count
-        create_semaphores(ctx);
+        // 3. Update the render extent
+        // Ensure our renderer's internal understanding of the screen matches the new swapchain
+        ctx.swapchainExtent = gpu.get_extent();
+
+        // 4. Verification
+        // We do NOT recreate semaphores or fences here. They are linked to MAX_FRAMES_IN_FLIGHT,
+        // not the window size. Reusing them saves significant CPU overhead during the resize loop.
     }
 
     void GenesisRenderer::render_explicit(VkCommandBuffer cmd, ::ImDrawData* drawData) {
@@ -89,7 +79,7 @@ namespace Genesis {
 
         // 2. Acquire Image
         uint32_t imageIndex;
-        VkResult result = vkAcquireNextImageKHR(ctx.device, ctx.swapchain, UINT64_MAX,
+        VkResult result = vkAcquireNextImageKHR(ctx.device, ctx.swapchain, 0,
                                        ctx.presentSemaphores[i], VK_NULL_HANDLE, &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -107,6 +97,12 @@ namespace Genesis {
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
         vkBeginCommandBuffer(cmd, &beginInfo);
+
+        VkViewport viewport{};
+        viewport.width = (float)packet.width;
+        viewport.height = (float)packet.height;
+        // ...
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
 
         // --- GENESIS DECOUPLING START ---
         // Instead of querying GUI or GLFW, we use the sealed packet data

@@ -50,6 +50,8 @@ namespace Genesis {
         auto swap_ret = swapchain_builder
             .set_desired_extent(1280, 720)
             .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
+            .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
+            .add_fallback_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
             .build();
 
         vkb::Swapchain vkb_swapchain = swap_ret.value();
@@ -59,6 +61,8 @@ namespace Genesis {
         context.swapchainImageViews = vkb_swapchain.get_image_views().value();
         context.swapchainImageFormat = vkb_swapchain.image_format;
         context.swapchainExtent = vkb_swapchain.extent;
+
+        this->m_swapchainExtent = vkb_swapchain.extent;
 
         // 6. Create a simple RenderPass (The "Instructions" for the GPU)
         VkAttachmentDescription color_attachment = {};
@@ -155,72 +159,73 @@ namespace Genesis {
     }
 
     void GpuSystem::recreate_swapchain() {
-        // 1. Wait for GPU to finish work
-        vkDeviceWaitIdle(context.device);
+    // 1. Wait for GPU to be completely idle
+    vkDeviceWaitIdle(context.device);
 
-        for (auto s : context.presentSemaphores) vkDestroySemaphore(context.device, s, nullptr);
-        for (auto s : context.renderSemaphores) vkDestroySemaphore(context.device, s, nullptr);
-        context.presentSemaphores.clear();
-        context.renderSemaphores.clear();
-
-        int width = 0, height = 0;
+    // 2. Determine new dimensions
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(context.window, &width, &height);
+    while (width == 0 || height == 0) {
         glfwGetFramebufferSize(context.window, &width, &height);
-
-        // Handle minimization (if width/height are 0, just wait)
-        while (width == 0 || height == 0) {
-            glfwGetFramebufferSize(context.window, &width, &height);
-            glfwWaitEvents();
-        }
-
-        // 2. Clean up old resources
-        for (auto framebuffer : context.framebuffers) {
-            vkDestroyFramebuffer(context.device, framebuffer, nullptr);
-        }
-        context.framebuffers.clear();
-        for (auto imageView : context.swapchainImageViews) {
-            vkDestroyImageView(context.device, imageView, nullptr);
-        }
-
-        // 3. Re-build the swapchain using vk-bootstrap
-        // It automatically detects the new window size from the surface
-        vkb::SwapchainBuilder swapchain_builder{ context.physDevice, context.device, context.surface };
-        auto swap_ret = swapchain_builder
-            .set_desired_extent(width, height)
-            // FORCE it to match your RenderPass
-            .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-            .set_old_swapchain(context.swapchain)
-            .build();
-
-        // Destroy the old handle after the new one is built
-        vkDestroySwapchainKHR(context.device, context.swapchain, nullptr);
-
-        vkb::Swapchain vkb_swapchain = swap_ret.value();
-        context.swapchain = vkb_swapchain.swapchain;
-        context.swapchainImages = vkb_swapchain.get_images().value();
-        context.swapchainImageViews = vkb_swapchain.get_image_views().value();
-        context.swapchainImageFormat = vkb_swapchain.image_format;
-        context.swapchainExtent = vkb_swapchain.extent;
-
-        uint32_t imageCount = (uint32_t)context.swapchainImages.size();
-        context.presentSemaphores.resize(imageCount);
-        context.renderSemaphores.resize(imageCount);
-
-        // 4. Re-create Framebuffers for the new images
-        context.framebuffers.resize(context.swapchainImageViews.size());
-        for (size_t i = 0; i < context.swapchainImageViews.size(); i++) {
-            VkImageView attachments[] = { context.swapchainImageViews[i] };
-
-            VkFramebufferCreateInfo fbInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-            fbInfo.renderPass = context.renderPass;
-            fbInfo.attachmentCount = 1;
-            fbInfo.pAttachments = attachments;
-            fbInfo.width = context.swapchainExtent.width;
-            fbInfo.height = context.swapchainExtent.height;
-            fbInfo.layers = 1;
-
-            vkCreateFramebuffer(context.device, &fbInfo, nullptr, &context.framebuffers[i]);
-        }
+        glfwWaitEvents();
     }
+
+    // 3. Clean up only the views and framebuffers
+    // (We do NOT touch semaphores here anymore)
+    for (auto framebuffer : context.framebuffers) {
+        vkDestroyFramebuffer(context.device, framebuffer, nullptr);
+    }
+    context.framebuffers.clear();
+
+    for (auto imageView : context.swapchainImageViews) {
+        vkDestroyImageView(context.device, imageView, nullptr);
+    }
+    context.swapchainImageViews.clear();
+
+    // 4. Build the new swapchain
+    vkb::SwapchainBuilder swapchain_builder{ context.physDevice, context.device, context.surface };
+        auto swap_ret = swapchain_builder
+        .set_desired_extent(width, height)
+        .set_desired_format({VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
+        .set_old_swapchain(context.swapchain)
+        .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR) // Add this!
+        .add_fallback_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR) // And this!
+        .build();
+
+    if (!swap_ret) {
+        return; // Or handle error
+    }
+
+    // Destroy the old handle
+    vkDestroySwapchainKHR(context.device, context.swapchain, nullptr);
+
+    // 5. Store the new vkb objects back into context
+    vkb::Swapchain vkb_swapchain = swap_ret.value();
+    context.swapchain = vkb_swapchain.swapchain;
+    context.swapchainImages = vkb_swapchain.get_images().value();
+    context.swapchainImageViews = vkb_swapchain.get_image_views().value();
+    context.swapchainImageFormat = vkb_swapchain.image_format;
+
+    // UPDATE THESE:
+    context.swapchainExtent = vkb_swapchain.extent;
+    this->m_swapchainExtent = vkb_swapchain.extent; // Update your class member for the getter!
+
+    // 6. Re-create Framebuffers for the new images
+    context.framebuffers.resize(context.swapchainImageViews.size());
+    for (size_t i = 0; i < context.swapchainImageViews.size(); i++) {
+        VkImageView attachments[] = { context.swapchainImageViews[i] };
+
+        VkFramebufferCreateInfo fbInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+        fbInfo.renderPass = context.renderPass;
+        fbInfo.attachmentCount = 1;
+        fbInfo.pAttachments = attachments;
+        fbInfo.width = context.swapchainExtent.width;
+        fbInfo.height = context.swapchainExtent.height;
+        fbInfo.layers = 1;
+
+        vkCreateFramebuffer(context.device, &fbInfo, nullptr, &context.framebuffers[i]);
+    }
+}
 
     void GpuSystem::cleanup() {
         vkDeviceWaitIdle(context.device);

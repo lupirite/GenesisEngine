@@ -44,7 +44,11 @@ namespace Genesis {
 
         GpuContext& get_context() { return context; }
 
+        VkExtent2D get_extent() const { return m_swapchainExtent; }
+
     private:
+        VkExtent2D m_swapchainExtent;
+
         GpuContext context;
         //void create_instance();
         //void setup_device();
