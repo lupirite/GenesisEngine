@@ -101,8 +101,7 @@ namespace Genesis {
         VkViewport viewport{};
         viewport.width = (float)packet.width;
         viewport.height = (float)packet.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
+        // ...
         vkCmdSetViewport(cmd, 0, 1, &viewport);
 
         // --- GENESIS DECOUPLING START ---
