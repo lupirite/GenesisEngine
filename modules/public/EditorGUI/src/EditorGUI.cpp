@@ -2,6 +2,8 @@
 
 #include <imgui_impl_vulkan.h>
 
+#include "../../GenesisRenderer/include/GenesisRenderer.hpp"
+
 namespace Genesis {
     void EditorGUI::render_ui(SceneRenderer& scene, const GpuContext& ctx) {
         // Draw the Stats first
@@ -9,23 +11,34 @@ namespace Genesis {
         draw_scene_settings();
 
         // Now draw the Viewport
-        ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Viewport");
+        ImGui::Begin("Scene");
+        ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 
-        // Capture size for the next frame's check_resize
-        ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-        _lastViewportSize = viewportPanelSize;
+        float viewAspect = viewportSize.x / viewportSize.y;
 
-        viewportWidth = viewportPanelSize.x;
-        viewportHeight = viewportPanelSize.y;
+        ImVec2 uv0(0.5f, 0.0f); // Center-start
+        ImVec2 uv1(0.5f, 1.0f); // Center-end
 
-        if (sceneTextureID != (ImTextureID)0) {
-            // We have a valid descriptor set, safe to draw
-            ImGui::Image(sceneTextureID, ImVec2(viewportWidth, viewportHeight));
-        } else {
-            // The Render Thread has invalidated the texture for a resize
-            ImGui::Text("Viewport Busy...");
-            ImGui::Text("(Rebuilding Vulkan Resources)");
+        if (viewAspect <= MAX_ASPECT) {
+            // WINDOW IS NARROWER THAN CANVAS: We clip the sides
+            // Calculate how much of the width to show (0.5 is the center)
+            float halfWidthToShow = (viewAspect / MAX_ASPECT) * 0.5f;
+            uv0.x = 0.5f - halfWidthToShow;
+            uv1.x = 0.5f + halfWidthToShow;
+
+            // Draw filling the whole viewport height/width
+            ImGui::Image(sceneTextureID, viewportSize, uv0, uv1);
+        }
+        else {
+            // WINDOW IS WIDER THAN CANVAS: Letterbox (Black bars on sides)
+            float displayWidth = viewportSize.y * MAX_ASPECT;
+            float offsetX = (viewportSize.x - displayWidth) * 0.5f;
+
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
+            uv0.x = 0.0f;
+            uv1.x = 1.0f;
+
+            ImGui::Image(sceneTextureID, ImVec2(displayWidth, viewportSize.y), uv0, uv1);
         }
 
         ImGui::End();

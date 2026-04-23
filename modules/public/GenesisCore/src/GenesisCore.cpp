@@ -25,7 +25,9 @@ namespace Genesis {
 
         m_renderer.init(ctx);
         m_editor.init(ctx);
-        m_scene.init(ctx, 1280, 720);
+        int initHeight = 720;
+        int initWidth = (int)((float)(initHeight)*EditorGUI::MAX_ASPECT);
+        m_scene.init(ctx, initWidth, initHeight);
 
         // Start the worker
         m_renderThread = std::jthread(&GenesisCore::render_thread_worker, this);
@@ -187,7 +189,7 @@ namespace Genesis {
                 vkDeviceWaitIdle(ctx.device);
                 // ONLY re-init the heavy Scene buffer if we've committed the move
                 m_scene.cleanup(ctx.device);
-                m_scene.init(ctx, packet.width, packet.height);
+                m_scene.init(ctx, (float)(packet.height)*EditorGUI::MAX_ASPECT, packet.height);
                 m_gui.update_texture_descriptor(m_scene, ctx);
             }
 

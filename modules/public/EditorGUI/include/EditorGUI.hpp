@@ -18,6 +18,7 @@ namespace Genesis {
 
     class EditorGUI {
     public:
+        static constexpr float MAX_ASPECT = 3.0f;
         void set_cpu_time(float ms) { m_cpuTime = ms; }
         void set_render_time(float ms) { m_renderTime = ms; }
 
