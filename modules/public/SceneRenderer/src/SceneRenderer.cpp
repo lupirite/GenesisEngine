@@ -1,7 +1,11 @@
 #include "SceneRenderer.hpp"
+
+#include <algorithm>
+
 #include "../third_party/imgui/backends/imgui_impl_vulkan.h"
 #include <stdexcept>
 #include <fstream>
+#include <iostream>
 #include <vector>
 
 static std::vector<char> readFile(const std::string& filename) {
@@ -88,11 +92,19 @@ namespace Genesis {
     }
 
     void SceneRenderer::init(GpuContext& ctx, uint32_t width, uint32_t height) {
-        _width = width;
-        _height = height;
+        uint32_t safeW = std::clamp(width, 1u, 16384u);
+        uint32_t safeH = std::clamp(height, 1u, 16384u);
+
+        if (width != safeW || height != safeH) {
+            // Output a debug message so you know the race condition happened
+            std::cout << "[Warning] SceneRenderer received invalid dimensions: " << width << "x" << height << std::endl;
+        }
+
+        _width = safeW;
+        _height = safeH;
 
         // 1. Create the Image and Memory (Using the helpers we wrote)
-        create_image_resources(ctx, width, height);
+        create_image_resources(ctx, safeW, safeH);
 
         // 2. Create Image View
         VkImageViewCreateInfo viewInfo = {};

@@ -28,6 +28,13 @@ namespace Genesis {
         void render_ui(SceneRenderer& scene, const GpuContext& ctx); // Keep this for drawing
 
         const EditorState& get_state() const { return _state; }
+        ImVec2 get_viewport_dimensions() {
+            // If ImGui hasn't drawn the scene window yet, return safe zero
+            if (_lastViewportSize.x <= 0.1f || _lastViewportSize.y <= 0.1f) {
+                return ImVec2(0.0f, 0.0f);
+            }
+            return _lastViewportSize;
+        }
 
         void update_texture_descriptor(SceneRenderer& scene, const GpuContext& ctx);
 

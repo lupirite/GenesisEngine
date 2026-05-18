@@ -1,4 +1,6 @@
 #include "GenesisRenderer.hpp"
+
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <GLFW/glfw3.h> // For glfwGetTime
@@ -67,9 +69,11 @@ namespace Genesis {
             return;
         }
 
-        // 0. Handle Window Resizes immediately from the packet flag
-        if (packet.needsResize) {
+        // 0. Handle WINDOW (Swapchain) Resizes
+        // This should be triggered by a separate flag or by checking the GpuContext directly
+        if (ctx.framebufferResized) {
             handle_swapchain_resize(ctx, gpu);
+            ctx.framebufferResized = false;
         }
 
         int i = _frameNumber % MAX_FRAMES_IN_FLIGHT;
@@ -84,6 +88,7 @@ namespace Genesis {
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             // Note: ImGui::EndFrame is now handled by the packet producer
+            ctx.framebufferResized = false;
             handle_swapchain_resize(ctx, gpu);
             return;
         }
@@ -98,28 +103,56 @@ namespace Genesis {
 
         vkBeginCommandBuffer(cmd, &beginInfo);
 
+        uint32_t renderW = std::clamp(packet.width, 1u, 16384u);
+        uint32_t renderH = std::clamp(packet.height, 1u, 16384u);
+
         VkViewport viewport{};
-        viewport.width = (float)packet.width;
-        viewport.height = (float)packet.height;
-        // ...
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(renderW);
+        viewport.height = static_cast<float>(renderH);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
         vkCmdSetViewport(cmd, 0, 1, &viewport);
 
+        // 3. Configure Scissor to match
+        VkRect2D scissor{};
+        scissor.offset = {0, 0};
+        scissor.extent = { renderW, renderH };
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+
         // --- GENESIS DECOUPLING START ---
-        // Instead of querying GUI or GLFW, we use the sealed packet data
+        // Record your 3D graphics scene to your offscreen image attachment
         scene.record_commands(cmd, packet);
         // --- GENESIS DECOUPLING END ---
 
+        // 4. Begin Main Swapchain Render Pass (Where ImGui draws its final composition over the window)
         VkRenderPassBeginInfo rpInfo = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
         rpInfo.renderPass = ctx.renderPass;
         rpInfo.framebuffer = ctx.framebuffers[imageIndex];
-        rpInfo.renderArea.extent = ctx.swapchainExtent;
+        rpInfo.renderArea.extent = ctx.swapchainExtent; // This tracks the real application window bounds
         VkClearValue clearColor = {{{0.1f, 0.1f, 0.1f, 1.0f}}};
         rpInfo.clearValueCount = 1;
         rpInfo.pClearValues = &clearColor;
 
         vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        // Pass the snapshot of the UI draw data to the editor
+        // 5. Override Viewport/Scissor to match the Swapchain size so ImGui doesn't clip
+        VkViewport uiViewport{};
+        uiViewport.x = 0.0f;
+        uiViewport.y = 0.0f;
+        uiViewport.width = static_cast<float>(ctx.swapchainExtent.width);
+        uiViewport.height = static_cast<float>(ctx.swapchainExtent.height);
+        uiViewport.minDepth = 0.0f;
+        uiViewport.maxDepth = 1.0f;
+        vkCmdSetViewport(cmd, 0, 1, &uiViewport);
+
+        VkRect2D uiScissor{};
+        uiScissor.offset = {0, 0};
+        uiScissor.extent = ctx.swapchainExtent;
+        vkCmdSetScissor(cmd, 0, 1, &uiScissor);
+
+        // Pass the snapshot of the UI draw data to the editor composition pass
         editor.render_explicit(cmd, packet.imguiDrawData);
 
         vkCmdEndRenderPass(cmd);

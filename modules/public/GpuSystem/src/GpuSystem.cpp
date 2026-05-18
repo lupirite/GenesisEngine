@@ -4,11 +4,25 @@
 
 namespace Genesis {
 
+    void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+        // Retrieve the context we "tucked away" in the window pointer
+        auto ctx = reinterpret_cast<GpuContext*>(glfwGetWindowUserPointer(window));
+        if (ctx) {
+            ctx->framebufferResized = true;
+        }
+    }
+
     void GpuSystem::init() {
         // 1. Create the Window
         glfwInit();
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         context.window = glfwCreateWindow(1280, 720, "Genesis Engine", nullptr, nullptr);
+
+        // Store the pointer to the context inside the GLFW window
+        glfwSetWindowUserPointer(context.window, &context);
+
+        // Set the callback
+        glfwSetFramebufferSizeCallback(context.window, framebuffer_size_callback);
 
         // 2. Initialize Vulkan Instance
         vkb::InstanceBuilder builder;

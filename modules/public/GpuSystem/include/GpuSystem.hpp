@@ -32,6 +32,8 @@ namespace Genesis {
 
         std::vector<VkSemaphore> presentSemaphores;
         std::vector<VkSemaphore> renderSemaphores;
+
+        bool framebufferResized = false;
     };
 
     class GpuSystem {

@@ -57,7 +57,6 @@ namespace Genesis {
         std::atomic<int> m_packetsInFlight{0};
 
         static bool s_framebufferResized;
-        static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
         // Native Win32 handle
         HWND m_hwnd;

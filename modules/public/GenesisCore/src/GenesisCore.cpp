@@ -1,14 +1,9 @@
 #include "GenesisCore.hpp"
 #include <chrono>
+#include <iostream>
+#include <algorithm>
 
 namespace Genesis {
-
-    bool GenesisCore::s_framebufferResized = false;
-
-    void GenesisCore::framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-        s_framebufferResized = true;
-    }
-
     GenesisCore::GenesisCore() {
         init();
     }
@@ -21,46 +16,44 @@ namespace Genesis {
         m_gpu.init();
         auto& ctx = m_gpu.get_context();
 
-        glfwSetFramebufferSizeCallback(ctx.window, framebuffer_size_callback);
-
         m_renderer.init(ctx);
         m_editor.init(ctx);
+
+        // 1. Set a solid baseline canvas resolution so the scene isn't blank
         int initHeight = 720;
-        int initWidth = (int)((float)(initHeight)*EditorGUI::MAX_ASPECT);
+        int initWidth = (int)((float)(initHeight) * EditorGUI::MAX_ASPECT);
         m_scene.init(ctx, initWidth, initHeight);
 
-        // Start the worker
-        m_renderThread = std::jthread(&GenesisCore::render_thread_worker, this);
+        // 2. Set up native Win32 window hooking hooks
+        m_hwnd = glfwGetWin32Window(ctx.window);
+        SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)this);
+        m_originalWndProc = (WNDPROC)SetWindowLongPtr(m_hwnd, GWLP_WNDPROC, (LONG_PTR)window_proc_setup);
 
-        // Initial Setup Packet
-        s_framebufferResized = true;
+        // Get the actual outer application window dimensions
         int startW, startH;
         glfwGetFramebufferSize(ctx.window, &startW, &startH);
 
-        RenderPacket setupPacket;
-        setupPacket.needsResize = true;
-        setupPacket.width = (uint32_t)startW;
-        setupPacket.height = (uint32_t)startH;
-        setupPacket.scenePayload = std::make_unique<SceneSnapshot>();
+        // 3. Set your running state flag to true BEFORE starting any thread
+        m_running = true;
 
+        // 4. Create and push the baseline setup packet directly into the queue
         {
             std::lock_guard<std::mutex> lock(m_queueMutex);
-            m_packetQueue.push(std::move(setupPacket));
+
+            m_packetQueue.emplace();
+            auto& setupPacket = m_packetQueue.back();
+
+            setupPacket.needsResize = true;
+            setupPacket.width = static_cast<uint32_t>(startW);
+            setupPacket.height = static_cast<uint32_t>(startH);
+            setupPacket.scenePayload = std::make_unique<SceneSnapshot>();
+
             m_packetsInFlight++;
         }
+
+        // 5. CRUCIAL: Spawn the background render thread LAST, after the packet is queued
+        m_renderThread = std::jthread(&GenesisCore::render_thread_worker, this);
         m_queueSignal.notify_one();
-
-        m_hwnd = glfwGetWin32Window(ctx.window);
-
-        // Store "this" pointer in the HWND so the static callback can find the instance
-        SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)this);
-
-        // Swap the procedure
-        m_originalWndProc = (WNDPROC)SetWindowLongPtr(m_hwnd, GWLP_WNDPROC, (LONG_PTR)window_proc_setup);
-
-        while (m_packetsInFlight > 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
     }
 
     LRESULT CALLBACK GenesisCore::window_proc_setup(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -74,8 +67,6 @@ namespace Genesis {
 
                 case WM_EXITSIZEMOVE:
                     KillTimer(hWnd, 1);
-                    // THE COMMIT: Now that the user let go, tell the engine to REALLY resize
-                    core->m_needsRealResize = true;
                     core->force_engine_tick();
                     break;
 
@@ -128,13 +119,20 @@ namespace Genesis {
 
         // 1. Update UI (ImGui needs to know the real window size to stay clickable)
         // Pass 'false' to check_resize during dragging so it doesn't trigger a scene-reinit
-        auto resizeStatus = m_gui.check_resize(m_scene, false);
+        // 1. Check if the user is actively dragging or just let go of the ImGui viewport window
+        // If the user lets go of the mouse button while over the UI layout, commit the resize!
+        bool userLetGoOfUi = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+        auto resizeStatus = m_gui.check_resize(m_scene, userLetGoOfUi);
+
+        // If the inner panel genuinely changed layout sizes, set our trigger flag
+        if (resizeStatus.needed) {
+            m_needsRealResize = true;
+        }
 
         // 2. Prepare ImGui Frame
         m_editor.new_frame();
-        if (m_gui.get_scene_texture_id() != (ImTextureID)0) {
-            m_gui.render_ui(m_scene, ctx);
-        }
+        m_gui.render_ui(m_scene, ctx);
+
         ImGui::Render();
 
         RenderPacket packet;
@@ -144,9 +142,22 @@ namespace Genesis {
         // THE MAGIC:
         // width/height = the Window size (for the swapchain/viewport)
         // sceneWidth/sceneHeight = the internal resolution (fixed until let go)
-        packet.width = (resizeStatus.width > 0) ? resizeStatus.width : (uint32_t)winW;
-        packet.height = (resizeStatus.height > 0) ? resizeStatus.height : (uint32_t)winH;
-        packet.needsResize = m_needsRealResize;
+        ImVec2 viewportSize = m_gui.get_viewport_dimensions();
+        if (std::isnan(viewportSize.x) || std::isnan(viewportSize.y) ||
+        viewportSize.x < 1.0f || viewportSize.y < 1.0f ||
+        viewportSize.x > 8192.0f || viewportSize.y > 8192.0f)
+        {
+            // Use your initial backup dimensions or window frame sizes
+            packet.width = (winW > 0) ? static_cast<uint32_t>(winW) : 1280;
+            packet.height = (winH > 0) ? static_cast<uint32_t>(winH) : 720;
+            packet.needsResize = false; // Block the heavy scene reinit if layout is invalid
+        }
+        else {
+            float wVal = EditorGUI::MAX_ASPECT*viewportSize.y;// (std::min)(viewportSize.x, EditorGUI::MAX_ASPECT*viewportSize.y);
+            packet.width = static_cast<uint32_t>(wVal);
+            packet.height = static_cast<uint32_t>(viewportSize.y);
+            packet.needsResize = m_needsRealResize;
+        }
 
         m_needsRealResize = false;
 
@@ -158,6 +169,13 @@ namespace Genesis {
         snapshot->sphereColor[1] = uiState.sphereColor[1];
         snapshot->sphereColor[2] = uiState.sphereColor[2];
         packet.scenePayload = std::move(snapshot);
+
+        if (packet.needsResize) {
+            std::cout << "[Debug Thread] Resize requested! Packet Size: "
+                      << packet.width << "x" << packet.height
+                      << " | m_needsRealResize flag status: " << m_needsRealResize
+                      << std::endl;
+        }
 
         // 5. Push to Render Thread
         {
@@ -184,22 +202,16 @@ namespace Genesis {
 
             auto renderStart = std::chrono::high_resolution_clock::now();
 
-            if (packet.needsResize) {
+            // 2. Handle the VIEWPORT (Scene)
+            // This should only happen if the IMGUI window changed or the move is "Final"
+            if (packet.needsResize) { // viewport needs resize
                 vkDeviceWaitIdle(ctx.device);
-                // ONLY re-init the heavy Scene buffer if we've committed the move
                 m_scene.cleanup(ctx.device);
-
-                if (m_needsRealResize) {
-                    m_scene.init(ctx, packet.width, packet.height);
-                } else {
-                    uint32_t safetyWidth = static_cast<uint32_t>(packet.height * EditorGUI::MAX_ASPECT);
-                    m_scene.init(ctx, safetyWidth, packet.height);
-                }
+                m_scene.init(ctx, packet.width, packet.height);
                 m_gui.update_texture_descriptor(m_scene, ctx);
             }
 
-            if (packet.width > 0 && packet.height > 0) {
-                auto renderStart = std::chrono::high_resolution_clock::now();
+            if (packet.width > 0 && packet.height > 0 && packet.width < 8192 && packet.height < 8192) {
 
                 // We only lock while we are recording/using the packet's ImGui data.
                 // If your m_renderer.draw_frame waits for VSync at the end,
@@ -226,7 +238,7 @@ namespace Genesis {
 
             if (curW == 0 || curH == 0) {
                 glfwWaitEvents();
-                s_framebufferResized = true;
+                //s_framebufferResized = true;
                 continue;
             }
 

@@ -12,33 +12,45 @@ namespace Genesis {
 
         // Now draw the Viewport
         ImGui::Begin("Scene");
-        ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+        _lastViewportSize = ImGui::GetContentRegionAvail();
 
-        float viewAspect = viewportSize.x / viewportSize.y;
+        ImVec2 viewportSize = _lastViewportSize;
 
-        ImVec2 uv0(0.5f, 0.0f); // Center-start
-        ImVec2 uv1(0.5f, 1.0f); // Center-end
-
-        if (viewAspect <= MAX_ASPECT) {
-            // WINDOW IS NARROWER THAN CANVAS: We clip the sides
-            // Calculate how much of the width to show (0.5 is the center)
-            float halfWidthToShow = (viewAspect / MAX_ASPECT) * 0.5f;
-            uv0.x = 0.5f - halfWidthToShow;
-            uv1.x = 0.5f + halfWidthToShow;
-
-            // Draw filling the whole viewport height/width
-            ImGui::Image(sceneTextureID, viewportSize, uv0, uv1);
+        if (sceneTextureID == (ImTextureID)0) {
+            // Draw a placeholder dark gray window background so the window layout exists
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                ImGui::GetCursorScreenPos(),
+                ImVec2(ImGui::GetCursorScreenPos().x + viewportSize.x, ImGui::GetCursorScreenPos().y + viewportSize.y),
+                IM_COL32(30, 30, 30, 255)
+            );
         }
         else {
-            // WINDOW IS WIDER THAN CANVAS: Letterbox (Black bars on sides)
-            float displayWidth = viewportSize.y * MAX_ASPECT;
-            float offsetX = (viewportSize.x - displayWidth) * 0.5f;
+            float viewAspect = viewportSize.x / viewportSize.y;
 
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
-            uv0.x = 0.0f;
-            uv1.x = 1.0f;
+            ImVec2 uv0(0.5f, 0.0f); // Center-start
+            ImVec2 uv1(0.5f, 1.0f); // Center-end
 
-            ImGui::Image(sceneTextureID, ImVec2(displayWidth, viewportSize.y), uv0, uv1);
+            if (viewAspect <= MAX_ASPECT) {
+                // WINDOW IS NARROWER THAN CANVAS: We clip the sides
+                // Calculate how much of the width to show (0.5 is the center)
+                float halfWidthToShow = (viewAspect / MAX_ASPECT) * 0.5f;
+                uv0.x = 0.5f - halfWidthToShow;
+                uv1.x = 0.5f + halfWidthToShow;
+
+                // Draw filling the whole viewport height/width
+                ImGui::Image(sceneTextureID, viewportSize, uv0, uv1);
+            }
+            else {
+                // WINDOW IS WIDER THAN CANVAS: Letterbox (Black bars on sides)
+                float displayWidth = viewportSize.y * MAX_ASPECT;
+                float offsetX = (viewportSize.x - displayWidth) * 0.5f;
+
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
+                uv0.x = 0.0f;
+                uv1.x = 1.0f;
+
+                ImGui::Image(sceneTextureID, ImVec2(displayWidth, viewportSize.y), uv0, uv1);
+            }
         }
 
         ImGui::End();
