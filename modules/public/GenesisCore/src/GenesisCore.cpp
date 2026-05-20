@@ -117,6 +117,8 @@ namespace Genesis {
 
         // Get current actual window dimensions
 
+        bool isSizeMismatched = (winW != m_scene.get_width() || winH != m_scene.get_height());
+
         // 1. Update UI (ImGui needs to know the real window size to stay clickable)
         // Pass 'false' to check_resize during dragging so it doesn't trigger a scene-reinit
         // 1. Check if the user is actively dragging or just let go of the ImGui viewport window
@@ -131,7 +133,7 @@ namespace Genesis {
 
         // 2. Prepare ImGui Frame
         m_editor.new_frame();
-        m_gui.render_ui(m_scene, ctx);
+        m_gui.render_ui(m_scene, ctx, isSizeMismatched);
 
         ImGui::Render();
 
@@ -153,7 +155,7 @@ namespace Genesis {
             packet.needsResize = false; // Block the heavy scene reinit if layout is invalid
         }
         else {
-            float wVal = EditorGUI::MAX_ASPECT*viewportSize.y;// (std::min)(viewportSize.x, EditorGUI::MAX_ASPECT*viewportSize.y);
+            float wVal = (std::min)(viewportSize.x, EditorGUI::MAX_ASPECT*viewportSize.y);
             packet.width = static_cast<uint32_t>(wVal);
             packet.height = static_cast<uint32_t>(viewportSize.y);
             packet.needsResize = m_needsRealResize;

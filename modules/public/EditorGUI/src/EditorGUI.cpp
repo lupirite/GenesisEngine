@@ -1,20 +1,35 @@
 #include "EditorGUI.hpp"
 
 #include <imgui_impl_vulkan.h>
+#include <iostream>
 
 #include "../../GenesisRenderer/include/GenesisRenderer.hpp"
 
 namespace Genesis {
-    void EditorGUI::render_ui(SceneRenderer& scene, const GpuContext& ctx) {
+    void EditorGUI::render_ui(SceneRenderer& scene, const GpuContext& ctx, bool isSizeMismatched) {
         // Draw the Stats first
         draw_stats_overlay();
         draw_scene_settings();
 
+        ImVec2 presetPos = ImVec2(400.0f, 150.0f);   // X, Y coordinates from top-left
+        ImVec2 presetSize = ImVec2(640.0f, 360.0f); // Default Width, Height
+
+        ImGui::SetNextWindowPos(presetPos, ImGuiCond_Appearing);
+        ImGui::SetNextWindowSize(presetSize, ImGuiCond_Appearing);
+
         // Now draw the Viewport
-        ImGui::Begin("Scene");
+        ImGui::Begin("Scene Viewport");
         _lastViewportSize = ImGui::GetContentRegionAvail();
 
         ImVec2 viewportSize = _lastViewportSize;
+
+        bool isWindowHovered = ImGui::IsWindowHovered();
+        bool isWindowFocused = ImGui::IsWindowFocused();
+        bool isMouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+
+        // 2. The explicit condition: The user is clicking/dragging the window frame,
+        // OR your custom layout system is waiting to finalize a commit.
+        bool isActivelyResizing = (isWindowHovered || isWindowFocused) && isMouseDown;
 
         if (sceneTextureID == (ImTextureID)0) {
             // Draw a placeholder dark gray window background so the window layout exists
@@ -27,27 +42,37 @@ namespace Genesis {
         else {
             float viewAspect = viewportSize.x / viewportSize.y;
 
-            ImVec2 uv0(0.5f, 0.0f); // Center-start
-            ImVec2 uv1(0.5f, 1.0f); // Center-end
+            ImVec2 uv0 = ImVec2(0.0f, 0.0f);
+            ImVec2 uv1 = ImVec2(1.0f, 1.0f);
 
-            if (viewAspect <= MAX_ASPECT) {
+            if (viewAspect <= MAX_ASPECT and !isActivelyResizing) {
                 // WINDOW IS NARROWER THAN CANVAS: We clip the sides
                 // Calculate how much of the width to show (0.5 is the center)
-                float halfWidthToShow = (viewAspect / MAX_ASPECT) * 0.5f;
-                uv0.x = 0.5f - halfWidthToShow;
-                uv1.x = 0.5f + halfWidthToShow;
+
+
+                wasCroppedAspect = true;
+                croppedViewportSize = viewportSize;
 
                 // Draw filling the whole viewport height/width
                 ImGui::Image(sceneTextureID, viewportSize, uv0, uv1);
             }
             else {
                 // WINDOW IS WIDER THAN CANVAS: Letterbox (Black bars on sides)
+                if (!isActivelyResizing)
+                    wasCroppedAspect = false;
+
                 float displayWidth = viewportSize.y * MAX_ASPECT;
+
+                if (wasCroppedAspect) {
+                    displayWidth = viewportSize.y * (croppedViewportSize.x/croppedViewportSize.y);
+                }
+
                 float offsetX = (viewportSize.x - displayWidth) * 0.5f;
 
                 ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
-                uv0.x = 0.0f;
-                uv1.x = 1.0f;
+
+                uv0 = ImVec2(0.0f, 0.0f);
+                ImVec2 uv1 = ImVec2(1.0f, 1.0f);
 
                 ImGui::Image(sceneTextureID, ImVec2(displayWidth, viewportSize.y), uv0, uv1);
             }

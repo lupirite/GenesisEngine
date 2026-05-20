@@ -25,7 +25,7 @@ namespace Genesis {
         ImTextureID get_scene_texture_id() const { return sceneTextureID; }
 
         ResizeRequest check_resize(SceneRenderer& scene, bool isCommit); // New function
-        void render_ui(SceneRenderer& scene, const GpuContext& ctx); // Keep this for drawing
+        void render_ui(SceneRenderer& scene, const GpuContext& ctx, bool isSizeMismatched); // Keep this for drawing
 
         const EditorState& get_state() const { return _state; }
         ImVec2 get_viewport_dimensions() {
@@ -56,5 +56,7 @@ namespace Genesis {
 
         float viewportWidth = 1280.0f;
         float viewportHeight = 720.0f;
+        bool wasCroppedAspect = false;
+        ImVec2 croppedViewportSize = ImVec2(1, 1);
     };
 }
