@@ -1,31 +1,35 @@
-project(GenesisCore)
+project(GenesisCore LANGUAGES CXX)
 
-# 1. Create the Core Library
-# This library handles the threading, the main loop, and the packet queue logic
+# ============================================================================
+# 1. Target Library Definition
+# ============================================================================
+# Manages multi-threaded pipeline synchronization, pacing, and core loop execution
 add_library(GenesisCore STATIC
         src/GenesisCore.cpp
 )
 
-# 2. Include Paths
-# We include the root "include" directory so it can find GenesisCore.hpp
-# and the other module headers it depends on.
+# ============================================================================
+# 2. Header Include Search Paths Configuration
+# ============================================================================
 target_include_directories(GenesisCore PUBLIC
         include
 )
 
-# 3. Link Dependencies
-# GenesisCore is the "Grand Central Station." It needs to see everything
-# to coordinate the logic and render threads.
+# ============================================================================
+# 3. Direct Interface Dependency Linking Phase
+# ============================================================================
+# Aggregates all subsystems to coordinate logic and render worker threads
 target_link_libraries(GenesisCore PUBLIC
         Vulkan::Vulkan
-        GpuSystem           # For GpuContext and GLFW window
-        GenesisRenderer     # For draw_frame and fences
-        SceneRenderer       # For the SDF rendering and textures
-        GenesisEditor       # For ImGui initialization
-        EditorGUI           # For the UI state and resizing logic
+        GpuSystem
+        GenesisRenderer
+        SceneRenderer
+        GenesisEditor
+        EditorGUI
 )
 
-# --- THE AUTO-REGISTER MAGIC ---
-# This ensures that when your top-level CMake runs, it knows to
-# include and link GenesisCore into the final binary.
+# ============================================================================
+# 4. Global Engine Registration Pass
+# ============================================================================
+# Appends this hub up into the core build compilation pipeline
 set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST GenesisCore)

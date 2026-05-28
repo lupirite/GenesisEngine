@@ -1,6 +1,8 @@
-project(GenesisEditor)
+project(GenesisEditor LANGUAGES CXX)
 
-# 1. Define ImGui Source Files
+# ============================================================================
+# 1. Dear ImGui Core & Backend Source Inventory
+# ============================================================================
 set(IMGUI_DIR "third_party/imgui")
 set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui.cpp
@@ -12,28 +14,36 @@ set(IMGUI_SOURCES
         ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
 )
 
-# 2. Create the Editor Library
+# ============================================================================
+# 2. Target Library Definition
+# ============================================================================
+# Compiles vendor user-interface widgets together with Genesis wrapper layer wrappers
 add_library(GenesisEditor STATIC
         ${IMGUI_SOURCES}
         src/GenesisEditor.cpp
 )
 
-# 3. Include Paths
-# Note: PRIVATE for backends if you don't want main.cpp to see them directly, 
-# but PUBLIC is safer for now to avoid red text.
+# ============================================================================
+# 3. Header Include Search Paths Configuration
+# ============================================================================
+# Exposes vendor headers publicly to ensure viewport widgets remain unclipped
 target_include_directories(GenesisEditor PUBLIC
         include
         ${IMGUI_DIR}
         ${IMGUI_DIR}/backends
 )
 
-# 4. Link Dependencies
-# We link GpuSystem so we get Vulkan and GLFW automatically!
+# ============================================================================
+# 4. Direct Interface Dependency Linking Phase
+# ============================================================================
+# Inherits window system backends, math utilities, and Vulkan context handles
 target_link_libraries(GenesisEditor PUBLIC
         Vulkan::Vulkan
-        GpuSystem       # This gives you GLFW handles for free
-        GenesisMath     # Ensure this matches the name in the Math module
+        GpuSystem
 )
 
-# --- THE AUTO-REGISTER MAGIC ---
+# ============================================================================
+# 5. Global Engine Registration Pass
+# ============================================================================
+# Appends this module up into the core build compilation pipeline
 set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST GenesisEditor)

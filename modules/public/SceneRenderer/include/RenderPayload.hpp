@@ -1,31 +1,42 @@
+#pragma once
 #include <memory>
+#include <cstdint>
 
 struct ImDrawData;
 
-namespace Genesis { // this is JUST for the viewport, not info about the main window
-    // The generic base class
+namespace Genesis {
+
+    /// Pure virtual interface for specialized scene data payloads shipped to the renderer.
     struct IRenderPayload {
         virtual ~IRenderPayload() = default;
     };
 
-    // The high-level packet the Renderer expects
+    /// Thread-safe transaction packet containing front-end states for back-end consumption.
     struct RenderPacket {
+        // --- Frame Metrics ---
         float time = 0.0f;
         uint32_t width = 0;
         uint32_t height = 0;
-        bool needsResize = false;
 
+        // --- Allocation & Lifecycles ---
+        bool needsResize = false;
+        bool isFinal = false;
+
+        // --- Type-Erased Frame Payloads ---
+        std::unique_ptr<IRenderPayload> scenePayload;
+        ::ImDrawData* imguiDrawData = nullptr;
+
+        // --- Rule of 5 Special Member Functions ---
         RenderPacket() = default;
-        // Ensure move constructor is clean
+        ~RenderPacket() = default;
+
+        // Clean move semantics for effortless transfer through queue-pumping segments
         RenderPacket(RenderPacket&&) noexcept = default;
         RenderPacket& operator=(RenderPacket&&) noexcept = default;
 
-        // Delete copy to prevent the "double-free" of the unique_ptr
+        // Strict non-copyable design guarantees single ownership and eliminates double-free risks
         RenderPacket(const RenderPacket&) = delete;
-
-        bool isFinal = false;
-        // The specific scene data (erased as the interface)
-        std::unique_ptr<IRenderPayload> scenePayload;
-        ::ImDrawData* imguiDrawData = nullptr;
+        RenderPacket& operator=(const RenderPacket&) = delete;
     };
-}
+
+} // namespace Genesis

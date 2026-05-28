@@ -1,22 +1,25 @@
 #include "SceneRenderer.hpp"
 
 #include <algorithm>
-
-#include "../third_party/imgui/backends/imgui_impl_vulkan.h"
 #include <stdexcept>
 #include <fstream>
 #include <iostream>
 #include <vector>
 
+#include "../third_party/imgui/backends/imgui_impl_vulkan.h"
+
 static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) throw std::runtime_error("Failed to open shader: " + filename);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open shader: " + filename);
+    }
 
-    size_t fileSize = (size_t)file.tellg();
+    size_t fileSize = static_cast<size_t>(file.tellg());
     std::vector<char> buffer(fileSize);
     file.seekg(0);
     file.read(buffer.data(), fileSize);
     file.close();
+
     return buffer;
 }
 
@@ -56,7 +59,7 @@ namespace Genesis {
     }
 
     void SceneRenderer::create_image_resources(GpuContext& ctx, uint32_t width, uint32_t height) {
-        // 1. Create the Image (The raw data container)
+        // 1. Configure the offscreen backing texture properties
         VkImageCreateInfo imageInfo = {};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -65,7 +68,7 @@ namespace Genesis {
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;
-        imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM; // Standard color format
+        imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -75,7 +78,7 @@ namespace Genesis {
             throw std::runtime_error("Failed to create scene image!");
         }
 
-        // 2. Allocate Memory for the Image
+        // 2. Query hardware constraints and allocate dedicated VRAM
         VkMemoryRequirements memReqs;
         vkGetImageMemoryRequirements(ctx.device, _image, &memReqs);
 
@@ -92,26 +95,25 @@ namespace Genesis {
     }
 
     void SceneRenderer::init(GpuContext& ctx, uint32_t width, uint32_t height) {
+        // Enforce rigid resolution limits to trap surface boundary race conditions during rapid viewport modifications
         uint32_t safeW = std::clamp(width, 1u, 16384u);
         uint32_t safeH = std::clamp(height, 1u, 16384u);
 
         if (width != safeW || height != safeH) {
-            // Output a debug message so you know the race condition happened
             std::cout << "[Warning] SceneRenderer received invalid dimensions: " << width << "x" << height << std::endl;
         }
 
         _width = safeW;
         _height = safeH;
 
-        // 1. Create the Image and Memory (Using the helpers we wrote)
         create_image_resources(ctx, safeW, safeH);
 
-        // 2. Create Image View
+        // 2. Construct the Image View target layer
         VkImageViewCreateInfo viewInfo = {};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = _image;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM; // Match the image format
+        viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
         viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = 1;
@@ -122,7 +124,7 @@ namespace Genesis {
             throw std::runtime_error("SceneRenderer: Failed to create image view!");
         }
 
-        // 3. Create Sampler (Tells the GPU how to stretch/shrink the texture)
+        // 3. Configure the sampler structure dictating how ImGui projects the texture canvas
         VkSamplerCreateInfo samplerInfo = {};
         samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         samplerInfo.magFilter = VK_FILTER_LINEAR;
@@ -135,27 +137,23 @@ namespace Genesis {
             throw std::runtime_error("SceneRenderer: Failed to create sampler!");
         }
 
-        // 4. Register with ImGui (This is the "Magic" part)
-        // We use the helper function from the ImGui Vulkan backend
-
-        // 1. Define the Attachment (Our private texture)
+        // 4. Construct the standalone Scene Render Pass layout properties
         VkAttachmentDescription colorAttachment = {};
         colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // Crucial for ImGui!
+        // The render pass automatically performs layout transitions to minimize synchronization barrier overhead
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         VkAttachmentReference colorRef = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
 
-        // 2. Define the Subpass
         VkSubpassDescription subpass = {};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorRef;
 
-        // 3. Create RenderPass
         VkRenderPassCreateInfo rpInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
         rpInfo.attachmentCount = 1;
         rpInfo.pAttachments = &colorAttachment;
@@ -164,7 +162,7 @@ namespace Genesis {
 
         vkCreateRenderPass(ctx.device, &rpInfo, nullptr, &_renderPass);
 
-        // 4. Create Framebuffer (Linking the RenderPass to our Image View)
+        // 5. Instanciate the output target Framebuffer
         VkFramebufferCreateInfo fbInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
         fbInfo.renderPass = _renderPass;
         fbInfo.attachmentCount = 1;
@@ -178,7 +176,7 @@ namespace Genesis {
         create_pipeline(ctx.device);
     }
 
-    void Genesis::SceneRenderer::create_pipeline(VkDevice device) {
+    void SceneRenderer::create_pipeline(VkDevice device) {
         auto vertCode = readFile(std::string(SHADER_DIR) + "gradient.vert.spv");
         auto fragCode = readFile(std::string(SHADER_DIR) + "gradient.frag.spv");
 
@@ -201,18 +199,17 @@ namespace Genesis {
         push_constant.size = sizeof(ShaderConstants);
         push_constant.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        // Pipeline Layout (Where your future Uniforms/Push Constants will live)
+        // Establish the pipeline layout handling fragment push constant updates
         VkPipelineLayoutCreateInfo layoutInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
         layoutInfo.pushConstantRangeCount = 1;
         layoutInfo.pPushConstantRanges = &push_constant;
         vkCreatePipelineLayout(device, &layoutInfo, nullptr, &_pipelineLayout);
 
-        // Minimal Pipeline State
         VkGraphicsPipelineCreateInfo pipelineInfo{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
         pipelineInfo.stageCount = 2;
         pipelineInfo.pStages = stages;
 
-        // Fixed functions: No vertex input (we generate in shader), Triangle list
+        // Vertices are generated directly on the GPU within the shader source files
         VkPipelineVertexInputStateCreateInfo vertexInput{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
         pipelineInfo.pVertexInputState = &vertexInput;
 
@@ -220,9 +217,8 @@ namespace Genesis {
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         pipelineInfo.pInputAssemblyState = &inputAssembly;
 
-        // Viewport & Scissor (Match your texture size)
-        VkViewport viewport{ 0.0f, 0.0f, (float)_width, (float)_height, 0.0f, 1.0f };
-        VkRect2D scissor{ {0, 0}, {_width, _height} };
+        VkViewport viewport{ 0.0f, 0.0f, static_cast<float>(_width), static_cast<float>(_height), 0.0f, 1.0f };
+        VkRect2D scissor{ { 0, 0 }, { _width, _height } };
         VkPipelineViewportStateCreateInfo viewportState{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
         viewportState.viewportCount = 1;
         viewportState.pViewports = &viewport;
@@ -245,24 +241,21 @@ namespace Genesis {
         colorBlending.logicOpEnable = VK_FALSE;
         colorBlending.attachmentCount = 1;
         colorBlending.pAttachments = &colorBlendAttachment;
-
-        // Ensure this line uses the '&' to pass the address
         pipelineInfo.pColorBlendState = &colorBlending;
 
         pipelineInfo.layout = _pipelineLayout;
         pipelineInfo.renderPass = _renderPass;
 
-        vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_graphicsPipeline);
+        if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_graphicsPipeline) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create graphics pipeline.");
+        }
 
         vkDestroyShaderModule(device, vertModule, nullptr);
         vkDestroyShaderModule(device, fragModule, nullptr);
     }
 
-    // Change: Function now takes the RenderPacket instead of raw floats
     void SceneRenderer::record_commands(VkCommandBuffer cmd, const RenderPacket& packet) {
-
-        // 1. Recover your specific "Sphere" data from the generic payload
-        // This is the "Inversion of Control" step
+        // Extract specialized uniforms snapshot block from the thread tracking structure
         auto* snapshot = static_cast<SceneSnapshot*>(packet.scenePayload.get());
         if (!snapshot) return;
 
@@ -273,20 +266,18 @@ namespace Genesis {
         rpInfo.renderArea.offset = { 0, 0 };
         rpInfo.renderArea.extent = { _width, _height };
 
-        VkClearValue clearColor = {{{ 0.1f, 0.0f, 0.0f, 1.0f }}};
+        VkClearValue clearColor = { {{ 0.1f, 0.0f, 0.0f, 1.0f }} };
         rpInfo.clearValueCount = 1;
         rpInfo.pClearValues = &clearColor;
 
         vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
 
-        // 2. Map data from the packet/snapshot to the GPU ShaderConstants
+        // Serialize data fields from the snapshot structure into layout uniform constants
         ShaderConstants constants;
-        constants.time = packet.time; // From the generic part of the packet
-        constants.width = (float)_width;
-        constants.height = (float)_height;
-
-        // These come from the "Specific" part of the snapshot
+        constants.time = packet.time;
+        constants.width = static_cast<float>(_width);
+        constants.height = static_cast<float>(_height);
         constants.sphereRadius = snapshot->sphereRadius;
         constants.sphereColor[0] = snapshot->sphereColor[0];
         constants.sphereColor[1] = snapshot->sphereColor[1];
@@ -315,8 +306,6 @@ namespace Genesis {
         vkDestroyImageView(device, _imageView, nullptr);
         vkDestroyImage(device, _image, nullptr);
         vkFreeMemory(device, _imageMemory, nullptr);
-
-        // Note: ImGui handles the cleanup of the DescriptorSet
-        // when the Global Descriptor Pool is destroyed.
     }
-}
+
+} // namespace Genesis

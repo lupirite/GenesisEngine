@@ -5,35 +5,36 @@
 #include "EditorGUI.hpp"
 
 namespace Genesis {
+
     class GenesisRenderer {
     public:
+        // --- Core Lifecycle Systems ---
         void init(GpuContext& ctx);
         void cleanup(GpuContext& ctx);
+
+        // --- Frame Rendering Pipeline ---
+        void draw_frame(GpuContext& ctx, GpuSystem& gpu, SceneRenderer& scene, GenesisEditor& editor, const RenderPacket& packet);
         void render_explicit(VkCommandBuffer cmd, ::ImDrawData* drawData);
 
-        // This replaces the messy main loop logic
-        void draw_frame(GpuContext& ctx, GpuSystem& gpu, SceneRenderer& scene, GenesisEditor& editor, const RenderPacket& packet);
-
-        static constexpr int MAX_FRAMES_IN_FLIGHT = 2; // Match your FRAME_OVERLAP value
+        // --- Hardware Throttling Queries ---
+        static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
         VkFence& get_fence(int index) { return _renderFences[index]; }
 
     private:
         static constexpr int FRAME_OVERLAP = 2;
-        int _frameNumber = 0; // Increments every frame
 
-        // Two of everything
-        VkFence _renderFences[FRAME_OVERLAP];
-        VkSemaphore _presentSemaphores[FRAME_OVERLAP];
-        VkSemaphore _renderSemaphores[FRAME_OVERLAP];
+        // Tracking state that increments monotonically each frame loop
+        int _frameNumber = 0;
 
-        // Helper to get 0 or 1
-        int current_frame() { return _frameNumber % FRAME_OVERLAP; }
+        // CPU-GPU Synchronization Throttles
+        VkFence _renderFences[FRAME_OVERLAP] = { VK_NULL_HANDLE, VK_NULL_HANDLE };
 
-        // Helper for the resize logic
-        void handle_swapchain_resize(GpuContext& ctx, GpuSystem& gpu);
+        // --- Private Internal Architecture ---
+        // Returns the current active virtual execution ring slot (0 or 1)
+        int current_frame() const { return _frameNumber % FRAME_OVERLAP; }
 
         void create_semaphores(GpuContext& ctx);
-
-        int current_frame() const { return _frameNumber % FRAME_OVERLAP; }
+        void handle_swapchain_resize(GpuContext& ctx, GpuSystem& gpu);
     };
-}
+
+} // namespace Genesis

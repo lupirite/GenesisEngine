@@ -4,6 +4,7 @@
 #include <algorithm>
 
 namespace Genesis {
+
     GenesisCore::GenesisCore() {
         init();
     }
@@ -19,24 +20,23 @@ namespace Genesis {
         m_renderer.init(ctx);
         m_editor.init(ctx);
 
-        // 1. Set a solid baseline canvas resolution so the scene isn't blank
+        // 1. Establish a fallback aspect-locked resolution to prevent blank canvas states
         int initHeight = 720;
-        int initWidth = (int)((float)(initHeight) * EditorGUI::MAX_ASPECT);
+        int initWidth = static_cast<int>(static_cast<float>(initHeight) * EditorGUI::MAX_ASPECT);
         m_scene.init(ctx, initWidth, initHeight);
 
-        // 2. Set up native Win32 window hooking hooks
+        // 2. Intercept native Win32 window messages to smooth out resizing artifacts
         m_hwnd = glfwGetWin32Window(ctx.window);
-        SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)this);
-        m_originalWndProc = (WNDPROC)SetWindowLongPtr(m_hwnd, GWLP_WNDPROC, (LONG_PTR)window_proc_setup);
+        SetWindowLongPtr(m_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+        m_originalWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(m_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(window_proc_setup)));
 
-        // Get the actual outer application window dimensions
         int startW, startH;
         glfwGetFramebufferSize(ctx.window, &startW, &startH);
 
-        // 3. Set your running state flag to true BEFORE starting any thread
+        // 3. Set running state active before kicking off threads
         m_running = true;
 
-        // 4. Create and push the baseline setup packet directly into the queue
+        // 4. Generate and dispatch the first baseline layout setup packet
         {
             std::lock_guard<std::mutex> lock(m_queueMutex);
 
@@ -51,17 +51,18 @@ namespace Genesis {
             m_packetsInFlight++;
         }
 
-        // 5. CRUCIAL: Spawn the background render thread LAST, after the packet is queued
+        // 5. Spawn background worker thread last once initialization data is fully queued
         m_renderThread = std::jthread(&GenesisCore::render_thread_worker, this);
         m_queueSignal.notify_one();
     }
 
     LRESULT CALLBACK GenesisCore::window_proc_setup(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-        GenesisCore* core = (GenesisCore*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        GenesisCore* core = reinterpret_cast<GenesisCore*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 
         if (core) {
             switch (uMsg) {
                 case WM_ENTERSIZEMOVE:
+                    // Trigger high-frequency paint events while dragging the frame
                     SetTimer(hWnd, 1, 8, NULL);
                     break;
 
@@ -73,20 +74,20 @@ namespace Genesis {
                 case WM_TIMER:
                     core->force_engine_tick();
                     return 0;
+
                 case WM_WINDOWPOSCHANGING:
                 case WM_WINDOWPOSCHANGED:
                 case WM_SIZING:
                 case WM_MOVING:
-
                     return 0;
-                case WM_PAINT:
-                {
+
+                case WM_PAINT: {
                     PAINTSTRUCT ps;
                     BeginPaint(hWnd, &ps);
                     core->force_engine_tick();
                     EndPaint(hWnd, &ps);
-                }
                     return 0;
+                }
             }
         }
         return CallWindowProc(core->m_originalWndProc, hWnd, uMsg, wParam, lParam);
@@ -97,11 +98,10 @@ namespace Genesis {
 
         static auto lastTick = std::chrono::high_resolution_clock::now();
         auto now = std::chrono::high_resolution_clock::now();
+
+        // Clamp frequency to mitigate queue saturation during live OS drag sequences
         if (std::chrono::duration<float, std::milli>(now - lastTick).count() < 8.0f) return;
 
-        // Use a standard lock. Because we moved the Scene Init and (hopefully)
-        // the VSync Present out of the lock in the worker, this will return
-        // almost instantly now.
         {
             std::lock_guard<std::mutex> lock(m_imguiMutex);
             produce_frame();
@@ -115,47 +115,39 @@ namespace Genesis {
         int winW, winH;
         glfwGetFramebufferSize(ctx.window, &winW, &winH);
 
-        // Get current actual window dimensions
-
         bool isSizeMismatched = (winW != m_scene.get_width() || winH != m_scene.get_height());
 
-        // 1. Update UI (ImGui needs to know the real window size to stay clickable)
-        // Pass 'false' to check_resize during dragging so it doesn't trigger a scene-reinit
-        // 1. Check if the user is actively dragging or just let go of the ImGui viewport window
-        // If the user lets go of the mouse button while over the UI layout, commit the resize!
+        // 1. Process active layout adjustments from the UI interface
         bool userLetGoOfUi = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
         auto resizeStatus = m_gui.check_resize(m_scene, userLetGoOfUi);
 
-        // If the inner panel genuinely changed layout sizes, set our trigger flag
         if (resizeStatus.needed) {
             m_needsRealResize = true;
         }
 
-        // 2. Prepare ImGui Frame
+        // 2. Assemble UI draw lists
         m_editor.new_frame();
         m_gui.render_ui(m_scene, ctx, isSizeMismatched);
-
         ImGui::Render();
 
+        // 3. Initialize fresh data packet for consumer thread distribution
         RenderPacket packet;
-        packet.time = (float)glfwGetTime();
+        packet.time = static_cast<float>(glfwGetTime());
         packet.imguiDrawData = ImGui::GetDrawData();
 
-        // THE MAGIC:
-        // width/height = the Window size (for the swapchain/viewport)
-        // sceneWidth/sceneHeight = the internal resolution (fixed until let go)
         ImVec2 viewportSize = m_gui.get_viewport_dimensions();
+
+        // Handle layout safety fallbacks against negative or corrupted panel states
         if (std::isnan(viewportSize.x) || std::isnan(viewportSize.y) ||
-        viewportSize.x < 1.0f || viewportSize.y < 1.0f ||
-        viewportSize.x > 8192.0f || viewportSize.y > 8192.0f)
+            viewportSize.x < 1.0f || viewportSize.y < 1.0f ||
+            viewportSize.x > 8192.0f || viewportSize.y > 8192.0f)
         {
-            // Use your initial backup dimensions or window frame sizes
             packet.width = (winW > 0) ? static_cast<uint32_t>(winW) : 1280;
             packet.height = (winH > 0) ? static_cast<uint32_t>(winH) : 720;
-            packet.needsResize = false; // Block the heavy scene reinit if layout is invalid
+            packet.needsResize = false;
         }
         else {
-            float wVal = (std::min)(viewportSize.x, EditorGUI::MAX_ASPECT*viewportSize.y);
+            float wVal = (std::min)(viewportSize.x, EditorGUI::MAX_ASPECT * viewportSize.y);
             packet.width = static_cast<uint32_t>(wVal);
             packet.height = static_cast<uint32_t>(viewportSize.y);
             packet.needsResize = m_needsRealResize;
@@ -163,23 +155,17 @@ namespace Genesis {
 
         m_needsRealResize = false;
 
-        // 4. Capture Scene State
+        // 4. Serialize a snapshot of current uniform parameters
         auto snapshot = std::make_unique<SceneSnapshot>();
         auto& uiState = m_gui.get_state();
+
         snapshot->sphereRadius = uiState.sphereRadius;
         snapshot->sphereColor[0] = uiState.sphereColor[0];
         snapshot->sphereColor[1] = uiState.sphereColor[1];
         snapshot->sphereColor[2] = uiState.sphereColor[2];
         packet.scenePayload = std::move(snapshot);
 
-        if (packet.needsResize) {
-            std::cout << "[Debug Thread] Resize requested! Packet Size: "
-                      << packet.width << "x" << packet.height
-                      << " | m_needsRealResize flag status: " << m_needsRealResize
-                      << std::endl;
-        }
-
-        // 5. Push to Render Thread
+        // 5. Submit transaction block into flight queue
         {
             std::lock_guard<std::mutex> lock(m_queueMutex);
             m_packetQueue.push(std::move(packet));
@@ -193,6 +179,8 @@ namespace Genesis {
 
         while (m_running) {
             RenderPacket packet;
+
+            // Pop the oldest packet from the front of the tracking queue
             {
                 std::unique_lock<std::mutex> lock(m_queueMutex);
                 m_queueSignal.wait(lock, [this] { return !m_packetQueue.empty() || !m_running; });
@@ -204,9 +192,8 @@ namespace Genesis {
 
             auto renderStart = std::chrono::high_resolution_clock::now();
 
-            // 2. Handle the VIEWPORT (Scene)
-            // This should only happen if the IMGUI window changed or the move is "Final"
-            if (packet.needsResize) { // viewport needs resize
+            // Reallocate Vulkan structural framing properties exclusively during finalized layout steps
+            if (packet.needsResize) {
                 vkDeviceWaitIdle(ctx.device);
                 m_scene.cleanup(ctx.device);
                 m_scene.init(ctx, packet.width, packet.height);
@@ -214,10 +201,7 @@ namespace Genesis {
             }
 
             if (packet.width > 0 && packet.height > 0 && packet.width < 8192 && packet.height < 8192) {
-
-                // We only lock while we are recording/using the packet's ImGui data.
-                // If your m_renderer.draw_frame waits for VSync at the end,
-                // try to move that "Present" call OUTSIDE of this lock block.
+                // Record draw calls and execute frame render pass calculations
                 {
                     std::lock_guard<std::mutex> lock(m_imguiMutex);
                     m_renderer.draw_frame(ctx, m_gpu, m_scene, m_editor, packet);
@@ -238,12 +222,13 @@ namespace Genesis {
             int curW, curH;
             glfwGetFramebufferSize(ctx.window, &curW, &curH);
 
+            // Halt updating loops if the context window is minimized
             if (curW == 0 || curH == 0) {
                 glfwWaitEvents();
-                //s_framebufferResized = true;
                 continue;
             }
 
+            // Impose backpressure limitations to prevent producing faster than consuming (Triple Buffering cap)
             if (m_packetsInFlight >= 3) {
                 std::this_thread::sleep_for(std::chrono::microseconds(500));
                 continue;

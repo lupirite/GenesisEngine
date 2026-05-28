@@ -1,14 +1,18 @@
-project(EditorGUI)
+project(EditorGUI LANGUAGES CXX)
 
-# 1. Define the library
-# We'll put our UI logic and state here
+# ============================================================================
+# 1. Target Library Definition
+# ============================================================================
+# Encapsulates layout data tracking and UI canvas interaction logic
 add_library(EditorGUI STATIC
         src/EditorGUI.cpp
         include/EditorGUI.hpp
 )
 
-# 2. Include Paths
-# We need to reach into GpuSystem for the context and ImGui for the widgets
+# ============================================================================
+# 2. Header Include Search Paths Configuration
+# ============================================================================
+# Connects the interface to hardware contexts, offscreen renderers, and ImGui hooks
 target_include_directories(EditorGUI PUBLIC
         include
         src
@@ -18,8 +22,10 @@ target_include_directories(EditorGUI PUBLIC
         ${CMAKE_SOURCE_DIR}/modules/public/GpuSystem/include
 )
 
-# 3. Link Dependencies
-# EditorGUI "talks" to the SceneRenderer to draw the viewport
+# ============================================================================
+# 3. Direct Interface Dependency Linking Phase
+# ============================================================================
+# Allows the UI layer to communicate directly with graphics sub-systems
 target_link_libraries(EditorGUI PUBLIC
         Vulkan::Vulkan
         GpuSystem
@@ -27,5 +33,8 @@ target_link_libraries(EditorGUI PUBLIC
         SceneRenderer
 )
 
-# 4. Register the module
+# ============================================================================
+# 4. Global Engine Registration Pass
+# ============================================================================
+# Appends this module up into the core build compilation pipeline
 set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST EditorGUI)

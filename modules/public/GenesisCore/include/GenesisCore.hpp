@@ -22,49 +22,57 @@ namespace Genesis {
 
     class GenesisCore {
     public:
+        // --- Core Lifecycle ---
         GenesisCore();
         ~GenesisCore();
 
+        /// Blocks the calling thread and spins up the primary engine runtime loops.
         void run();
 
+        /// Manually forces a synchronous frame processing pass (used for window resize stalling).
         void force_engine_tick();
 
     private:
+        // --- Internal Setup & Processing Steps ---
         void init();
         void main_loop();
-        void render_thread_worker();
         void cleanup();
 
+        // --- Multi-Threaded Task Workers ---
+        /// Main Thread Task: Samples inputs and packs frame state parameters into transactional payloads.
         void produce_frame();
 
-        bool m_needsRealResize = false;
+        /// Worker Thread Task: Consumes processed packets and submits hardware command streams to the GPU.
+        void render_thread_worker();
 
-        // Components
-        GpuSystem m_gpu;
+        // --- Core Sub-System Dependencies ---
+        GpuSystem       m_gpu;
         GenesisRenderer m_renderer;
-        GenesisEditor m_editor;
-        EditorGUI m_gui;
-        SceneRenderer m_scene;
+        GenesisEditor   m_editor;
+        EditorGUI       m_gui;
+        SceneRenderer   m_scene;
 
-        // Threading & Sync
-        std::jthread m_renderThread;
+        // --- Threading & Concurrency Infrastructure ---
+        std::jthread            m_renderThread;
         std::queue<RenderPacket> m_packetQueue;
-        std::mutex m_queueMutex;
+        std::mutex              m_queueMutex;
         std::condition_variable m_queueSignal;
-        std::mutex m_imguiMutex;
+        std::mutex              m_imguiMutex; // Guards shared backend ImGui draw structures
 
-        std::atomic<bool> m_running{true};
-        std::atomic<int> m_packetsInFlight{0};
+        // --- Synchronization Flags & Atomic State ---
+        std::atomic<bool> m_running{ true };
+        std::atomic<int>  m_packetsInFlight{ 0 };
+        bool              m_needsRealResize = false;
+        static bool       s_framebufferResized;
 
-        static bool s_framebufferResized;
+#ifdef _WIN32
+        // --- Native Win32 Custom Window Procedure Hooking ---
+        HWND    m_hwnd = nullptr;
+        WNDPROC m_originalWndProc = nullptr;
 
-        // Native Win32 handle
-        HWND m_hwnd;
-        // Storage for the old GLFW procedure so we can pass messages back
-        WNDPROC m_originalWndProc;
-
-        // The static "Bridge" that Windows talks to
+        /// Static interception hook that captures Windows message loops before passing them back to GLFW.
         static LRESULT CALLBACK window_proc_setup(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+#endif
     };
 
 } // namespace Genesis
