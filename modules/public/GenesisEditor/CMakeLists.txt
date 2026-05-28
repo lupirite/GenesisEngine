@@ -28,9 +28,9 @@ add_library(GenesisEditor STATIC
 # ============================================================================
 # Exposes vendor headers publicly to ensure viewport widgets remain unclipped
 target_include_directories(GenesisEditor PUBLIC
-        include
-        ${IMGUI_DIR}
-        ${IMGUI_DIR}/backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/${IMGUI_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/${IMGUI_DIR}/backends
 )
 
 # ============================================================================

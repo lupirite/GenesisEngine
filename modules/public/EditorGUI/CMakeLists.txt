@@ -14,12 +14,7 @@ add_library(EditorGUI STATIC
 # ============================================================================
 # Connects the interface to hardware contexts, offscreen renderers, and ImGui hooks
 target_include_directories(EditorGUI PUBLIC
-        include
-        src
-        ${CMAKE_SOURCE_DIR}/modules/public/SceneRenderer/include
-        ${CMAKE_SOURCE_DIR}/modules/public/GenesisEditor/third_party/imgui
-        ${CMAKE_SOURCE_DIR}/modules/public/GenesisEditor/third_party/imgui/backends
-        ${CMAKE_SOURCE_DIR}/modules/public/GpuSystem/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # ============================================================================

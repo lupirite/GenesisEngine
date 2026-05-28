@@ -14,10 +14,7 @@ add_library(GenesisRenderer STATIC
 # ============================================================================
 # Reaches into core modules and vendor backend paths for rendering context
 target_include_directories(GenesisRenderer PUBLIC
-        include
-        src
-        ${CMAKE_SOURCE_DIR}/modules/public/GenesisEditor/third_party/imgui
-        ${CMAKE_SOURCE_DIR}/modules/public/GenesisEditor/third_party/imgui/backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # ============================================================================

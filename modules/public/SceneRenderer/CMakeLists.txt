@@ -16,10 +16,7 @@ add_library(SceneRenderer STATIC
 # ============================================================================
 # Exposes internal frame targets and vendor pipeline layouts downwards
 target_include_directories(SceneRenderer PUBLIC
-        include
-        src
-        ${CMAKE_SOURCE_DIR}/modules/public/GenesisEditor/third_party/imgui
-        ${CMAKE_SOURCE_DIR}/modules/public/GenesisEditor/third_party/imgui/backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # ============================================================================

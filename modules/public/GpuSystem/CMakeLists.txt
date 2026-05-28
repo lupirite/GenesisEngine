@@ -25,9 +25,10 @@ add_library(GpuSystem STATIC
 # 3. Header Include Search Paths Configuration
 # ============================================================================
 target_include_directories(GpuSystem PUBLIC
-        include
-        src
-        third_party
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # ============================================================================
