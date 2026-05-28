@@ -26,7 +26,7 @@ target_include_directories(SceneRenderer PUBLIC
 target_link_libraries(SceneRenderer PUBLIC
         Vulkan::Vulkan
         GpuSystem
-        GenesisEditor
+        Editor
 )
 
 # ============================================================================

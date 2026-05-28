@@ -7,7 +7,7 @@ struct ImDrawData;
 
 namespace Genesis {
 
-    class GenesisEditor {
+    class Editor {
     public:
         // --- Core Lifecycle Systems ---
         void init(const GpuContext& ctx);

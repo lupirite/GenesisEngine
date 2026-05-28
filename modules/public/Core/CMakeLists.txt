@@ -1,36 +1,35 @@
-project(GenesisRenderer LANGUAGES CXX)
+project(Core LANGUAGES CXX)
 
 # ============================================================================
 # 1. Target Library Definition
 # ============================================================================
-# Manages multi-frame CPU-GPU synchronization, swapchains, and render loops
-add_library(GenesisRenderer STATIC
-        src/GenesisRenderer.cpp
-        include/GenesisRenderer.hpp
+# Manages multi-threaded pipeline synchronization, pacing, and core loop execution
+add_library(Core STATIC
+        src/Core.cpp
 )
 
 # ============================================================================
 # 2. Header Include Search Paths Configuration
 # ============================================================================
-# Reaches into core modules and vendor backend paths for rendering context
-target_include_directories(GenesisRenderer PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+target_include_directories(Core PUBLIC
+        include
 )
 
 # ============================================================================
 # 3. Direct Interface Dependency Linking Phase
 # ============================================================================
-# Coordinates execution with the hardware context, UI structures, and pipelines
-target_link_libraries(GenesisRenderer PUBLIC
+# Aggregates all subsystems to coordinate logic and render worker threads
+target_link_libraries(Core PUBLIC
         Vulkan::Vulkan
         GpuSystem
-        GenesisEditor
+        Renderer
         SceneRenderer
+        Editor
         EditorGUI
 )
 
 # ============================================================================
 # 4. Global Engine Registration Pass
 # ============================================================================
-# Appends this module up into the core build compilation pipeline
-set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST GenesisRenderer)
+# Appends this hub up into the core build compilation pipeline
+set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST Core)

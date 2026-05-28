@@ -1,5 +1,5 @@
 #pragma once
-#include "GenesisEditor.hpp"
+#include "Editor.hpp"
 #include "SceneRenderer.hpp"
 #include <imgui.h>
 

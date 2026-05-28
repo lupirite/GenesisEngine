@@ -1,4 +1,4 @@
-#include "GenesisEditor.hpp"
+#include "Editor.hpp"
 #include "../third_party/imgui/backends/imgui_impl_glfw.h"
 #include "../third_party/imgui/backends/imgui_impl_vulkan.h"
 #include <stdexcept>
@@ -7,7 +7,7 @@
 
 namespace Genesis {
 
-    void GenesisEditor::init(const GpuContext& ctx) {
+    void Editor::init(const GpuContext& ctx) {
         // 1. Configure the Dedicated UI Descriptor Pool
         VkDescriptorPoolSize pool_sizes[] = {
             { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 }
@@ -52,20 +52,20 @@ namespace Genesis {
         }
     }
 
-    void GenesisEditor::new_frame() {
+    void Editor::new_frame() {
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
     }
 
-    void GenesisEditor::render_explicit(VkCommandBuffer commandBuffer, ImDrawData* drawData) {
+    void Editor::render_explicit(VkCommandBuffer commandBuffer, ImDrawData* drawData) {
         // Only submit draw lists into the command buffer if valid geometry exists
         if (drawData) {
             ImGui_ImplVulkan_RenderDrawData(drawData, commandBuffer);
         }
     }
 
-    void GenesisEditor::shutdown(VkDevice device) {
+    void Editor::shutdown(VkDevice device) {
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();

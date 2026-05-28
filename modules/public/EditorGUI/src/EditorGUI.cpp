@@ -3,7 +3,7 @@
 #include <imgui_impl_vulkan.h>
 #include <iostream>
 
-#include "../../GenesisRenderer/include/GenesisRenderer.hpp"
+#include "../../Renderer/include/Renderer.hpp"
 
 namespace Genesis {
 

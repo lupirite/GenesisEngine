@@ -1,19 +1,19 @@
-#include "GenesisCore.hpp"
+#include "Core.hpp"
 #include <chrono>
 #include <iostream>
 #include <algorithm>
 
 namespace Genesis {
 
-    GenesisCore::GenesisCore() {
+    Core::Core() {
         init();
     }
 
-    GenesisCore::~GenesisCore() {
+    Core::~Core() {
         cleanup();
     }
 
-    void GenesisCore::init() {
+    void Core::init() {
         m_gpu.init();
         auto& ctx = m_gpu.get_context();
 
@@ -52,12 +52,12 @@ namespace Genesis {
         }
 
         // 5. Spawn background worker thread last once initialization data is fully queued
-        m_renderThread = std::jthread(&GenesisCore::render_thread_worker, this);
+        m_renderThread = std::jthread(&Core::render_thread_worker, this);
         m_queueSignal.notify_one();
     }
 
-    LRESULT CALLBACK GenesisCore::window_proc_setup(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-        GenesisCore* core = reinterpret_cast<GenesisCore*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    LRESULT CALLBACK Core::window_proc_setup(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+        Core* core = reinterpret_cast<Core*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 
         if (core) {
             switch (uMsg) {
@@ -93,7 +93,7 @@ namespace Genesis {
         return CallWindowProc(core->m_originalWndProc, hWnd, uMsg, wParam, lParam);
     }
 
-    void GenesisCore::force_engine_tick() {
+    void Core::force_engine_tick() {
         if (!m_running || m_packetsInFlight >= 3) return;
 
         static auto lastTick = std::chrono::high_resolution_clock::now();
@@ -109,7 +109,7 @@ namespace Genesis {
         lastTick = now;
     }
 
-    void GenesisCore::produce_frame() {
+    void Core::produce_frame() {
         auto& ctx = m_gpu.get_context();
 
         int winW, winH;
@@ -174,7 +174,7 @@ namespace Genesis {
         m_queueSignal.notify_one();
     }
 
-    void GenesisCore::render_thread_worker() {
+    void Core::render_thread_worker() {
         auto& ctx = m_gpu.get_context();
 
         while (m_running) {
@@ -215,7 +215,7 @@ namespace Genesis {
         }
     }
 
-    void GenesisCore::run() {
+    void Core::run() {
         auto& ctx = m_gpu.get_context();
 
         while (!glfwWindowShouldClose(ctx.window)) {
@@ -248,7 +248,7 @@ namespace Genesis {
         }
     }
 
-    void GenesisCore::cleanup() {
+    void Core::cleanup() {
         m_running = false;
         m_queueSignal.notify_all();
         if (m_renderThread.joinable()) m_renderThread.join();

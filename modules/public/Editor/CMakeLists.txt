@@ -1,4 +1,4 @@
-project(GenesisEditor LANGUAGES CXX)
+project(Editor LANGUAGES CXX)
 
 # ============================================================================
 # 1. Dear ImGui Core & Backend Source Inventory
@@ -18,16 +18,16 @@ set(IMGUI_SOURCES
 # 2. Target Library Definition
 # ============================================================================
 # Compiles vendor user-interface widgets together with Genesis wrapper layer wrappers
-add_library(GenesisEditor STATIC
+add_library(Editor STATIC
         ${IMGUI_SOURCES}
-        src/GenesisEditor.cpp
+        src/Editor.cpp
 )
 
 # ============================================================================
 # 3. Header Include Search Paths Configuration
 # ============================================================================
 # Exposes vendor headers publicly to ensure viewport widgets remain unclipped
-target_include_directories(GenesisEditor PUBLIC
+target_include_directories(Editor PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/${IMGUI_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/${IMGUI_DIR}/backends
@@ -37,7 +37,7 @@ target_include_directories(GenesisEditor PUBLIC
 # 4. Direct Interface Dependency Linking Phase
 # ============================================================================
 # Inherits window system backends, math utilities, and Vulkan context handles
-target_link_libraries(GenesisEditor PUBLIC
+target_link_libraries(Editor PUBLIC
         Vulkan::Vulkan
         GpuSystem
 )
@@ -46,4 +46,4 @@ target_link_libraries(GenesisEditor PUBLIC
 # 5. Global Engine Registration Pass
 # ============================================================================
 # Appends this module up into the core build compilation pipeline
-set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST GenesisEditor)
+set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST Editor)

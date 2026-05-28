@@ -1,19 +1,19 @@
 #pragma once
 #include "GpuSystem.hpp"
 #include "SceneRenderer.hpp"
-#include "GenesisEditor.hpp"
+#include "Editor.hpp"
 #include "EditorGUI.hpp"
 
 namespace Genesis {
 
-    class GenesisRenderer {
+    class Renderer {
     public:
         // --- Core Lifecycle Systems ---
         void init(GpuContext& ctx);
         void cleanup(GpuContext& ctx);
 
         // --- Frame Rendering Pipeline ---
-        void draw_frame(GpuContext& ctx, GpuSystem& gpu, SceneRenderer& scene, GenesisEditor& editor, const RenderPacket& packet);
+        void draw_frame(GpuContext& ctx, GpuSystem& gpu, SceneRenderer& scene, Editor& editor, const RenderPacket& packet);
         void render_explicit(VkCommandBuffer cmd, ::ImDrawData* drawData);
 
         // --- Hardware Throttling Queries ---

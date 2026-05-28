@@ -1,4 +1,4 @@
-#include "GenesisRenderer.hpp"
+#include "Renderer.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -10,7 +10,7 @@
 
 namespace Genesis {
 
-    void GenesisRenderer::init(GpuContext& ctx) {
+    void Renderer::init(GpuContext& ctx) {
         VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
@@ -22,7 +22,7 @@ namespace Genesis {
         create_semaphores(ctx);
     }
 
-    void GenesisRenderer::create_semaphores(GpuContext& ctx) {
+    void Renderer::create_semaphores(GpuContext& ctx) {
         uint32_t imageCount = static_cast<uint32_t>(ctx.swapchainImages.size());
         uint32_t count = std::max(imageCount, static_cast<uint32_t>(FRAME_OVERLAP));
 
@@ -38,7 +38,7 @@ namespace Genesis {
         }
     }
 
-    void GenesisRenderer::handle_swapchain_resize(GpuContext& ctx, GpuSystem& gpu) {
+    void Renderer::handle_swapchain_resize(GpuContext& ctx, GpuSystem& gpu) {
         // Stall execution until existing pipeline queues are fully drained
         vkDeviceWaitIdle(ctx.device);
 
@@ -50,13 +50,13 @@ namespace Genesis {
         // Reusing them here removes runtime kernel reallocation overhead.
     }
 
-    void GenesisRenderer::render_explicit(VkCommandBuffer cmd, ::ImDrawData* drawData) {
+    void Renderer::render_explicit(VkCommandBuffer cmd, ::ImDrawData* drawData) {
         if (drawData) {
             ImGui_ImplVulkan_RenderDrawData(drawData, cmd);
         }
     }
 
-    void GenesisRenderer::draw_frame(GpuContext& ctx, GpuSystem& gpu, SceneRenderer& scene, GenesisEditor& editor, const RenderPacket& packet) {
+    void Renderer::draw_frame(GpuContext& ctx, GpuSystem& gpu, SceneRenderer& scene, Editor& editor, const RenderPacket& packet) {
         if (ctx.presentSemaphores.empty() || ctx.renderSemaphores.empty()) {
             return;
         }
@@ -177,7 +177,7 @@ namespace Genesis {
         _frameNumber++;
     }
 
-    void GenesisRenderer::cleanup(GpuContext& ctx) {
+    void Renderer::cleanup(GpuContext& ctx) {
         // Guarantee pipeline loops are totally dark before freeing memory heaps
         vkDeviceWaitIdle(ctx.device);
 

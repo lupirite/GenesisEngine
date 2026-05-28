@@ -1,10 +1,10 @@
 #pragma once
 
 #include "GpuSystem.hpp"
-#include "GenesisEditor.hpp"
+#include "Editor.hpp"
 #include "SceneRenderer.hpp"
 #include "EditorGUI.hpp"
-#include "GenesisRenderer.hpp"
+#include "Renderer.hpp"
 
 #include <queue>
 #include <mutex>
@@ -20,11 +20,11 @@
 
 namespace Genesis {
 
-    class GenesisCore {
+    class Core {
     public:
         // --- Core Lifecycle ---
-        GenesisCore();
-        ~GenesisCore();
+        Core();
+        ~Core();
 
         /// Blocks the calling thread and spins up the primary engine runtime loops.
         void run();
@@ -47,8 +47,8 @@ namespace Genesis {
 
         // --- Core Sub-System Dependencies ---
         GpuSystem       m_gpu;
-        GenesisRenderer m_renderer;
-        GenesisEditor   m_editor;
+        Renderer m_renderer;
+        Editor   m_editor;
         EditorGUI       m_gui;
         SceneRenderer   m_scene;
 

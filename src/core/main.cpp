@@ -1,9 +1,9 @@
-#include "GenesisCore.hpp"
+#include "Core.hpp"
 #include <iostream>
 
 int main() {
     try {
-        Genesis::GenesisCore engine;
+        Genesis::Core engine;
         engine.run();
     } catch (const std::exception& e) {
         std::cerr << "CRITICAL ENGINE FAILURE: " << e.what() << std::endl;

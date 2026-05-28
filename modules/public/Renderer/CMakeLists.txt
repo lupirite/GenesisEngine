@@ -1,35 +1,36 @@
-project(GenesisCore LANGUAGES CXX)
+project(Renderer LANGUAGES CXX)
 
 # ============================================================================
 # 1. Target Library Definition
 # ============================================================================
-# Manages multi-threaded pipeline synchronization, pacing, and core loop execution
-add_library(GenesisCore STATIC
-        src/GenesisCore.cpp
+# Manages multi-frame CPU-GPU synchronization, swapchains, and render loops
+add_library(Renderer STATIC
+        src/Renderer.cpp
+        include/Renderer.hpp
 )
 
 # ============================================================================
 # 2. Header Include Search Paths Configuration
 # ============================================================================
-target_include_directories(GenesisCore PUBLIC
-        include
+# Reaches into core modules and vendor backend paths for rendering context
+target_include_directories(Renderer PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # ============================================================================
 # 3. Direct Interface Dependency Linking Phase
 # ============================================================================
-# Aggregates all subsystems to coordinate logic and render worker threads
-target_link_libraries(GenesisCore PUBLIC
+# Coordinates execution with the hardware context, UI structures, and pipelines
+target_link_libraries(Renderer PUBLIC
         Vulkan::Vulkan
         GpuSystem
-        GenesisRenderer
+        Editor
         SceneRenderer
-        GenesisEditor
         EditorGUI
 )
 
 # ============================================================================
 # 4. Global Engine Registration Pass
 # ============================================================================
-# Appends this hub up into the core build compilation pipeline
-set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST GenesisCore)
+# Appends this module up into the core build compilation pipeline
+set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST Renderer)
