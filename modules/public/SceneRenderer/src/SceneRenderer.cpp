@@ -55,11 +55,12 @@ VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code
 namespace Genesis {
 
     struct ShaderConstants {
+        float camPos[4];
+        float sphereColor[4];
         float time;
         float width;
         float height;
         float sphereRadius;
-        float sphereColor[3];
     };
 
     uint32_t SceneRenderer::find_memory_type(VkPhysicalDevice physDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -298,6 +299,10 @@ namespace Genesis {
         constants.sphereColor[0] = snapshot->sphereColor[0];
         constants.sphereColor[1] = snapshot->sphereColor[1];
         constants.sphereColor[2] = snapshot->sphereColor[2];
+
+        constants.camPos[0] = snapshot->camPos[0];
+        constants.camPos[1] = snapshot->camPos[1];
+        constants.camPos[2] = snapshot->camPos[2];
 
         vkCmdPushConstants(
             cmd,

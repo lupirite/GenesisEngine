@@ -53,6 +53,8 @@ endforeach()
 # 2. Main Native Executable Construction
 # ============================================================================
 add_executable(GenesisND src/core/main.cpp
+        modules/public/InputSystem/include/InputSystem.hpp
+        modules/public/InputSystem/src/InputSystem.cpp
 )
 
 # Header Location Paths Configuration

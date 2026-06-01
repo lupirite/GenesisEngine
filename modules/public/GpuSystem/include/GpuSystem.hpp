@@ -70,6 +70,9 @@ namespace Genesis {
 
         // --- State Accessors ---
         GpuContext& get_context() { return context; }
+
+        struct GLFWwindow* get_window() { return context.window; }
+
         VkExtent2D get_extent() const { return m_swapchainExtent; }
 
     private:

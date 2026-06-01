@@ -24,8 +24,10 @@ namespace Genesis {
 
     /// Thread-safe payload snapshot carrying runtime data across frame queues.
     struct SceneSnapshot : public IRenderPayload {
+        float camPos[4];
+        float sphereColor[4];
         float sphereRadius;
-        float sphereColor[3];
+
         // Future: std::vector<ObjectData> objects;
     };
 

@@ -178,6 +178,8 @@ namespace Genesis {
             ImGui::Text("Scene Settings");
             ImGui::Separator();
 
+            ImGui::DragFloat3("Camera Position", &_state.camPos[0], 0.05f, -100.0f, 100.0f);
+
             // Expose scene configurations mapped to the engine context state
             ImGui::DragFloat("Sphere Radius", &_state.sphereRadius, 0.005f, 0.0f, 1.0f);
             ImGui::ColorEdit3("Sphere Color", _state.sphereColor);

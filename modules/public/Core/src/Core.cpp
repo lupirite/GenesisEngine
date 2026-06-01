@@ -33,6 +33,18 @@ namespace Genesis {
         m_gpu.init();
         auto& ctx = m_gpu.get_context();
 
+        m_input.init(m_gpu.get_window());
+
+        // Define the action bindings dynamically
+        m_input.bind_action("MoveForward", GLFW_KEY_W);
+        m_input.bind_action("MoveBackward", GLFW_KEY_S);
+        m_input.bind_action("MoveUp", GLFW_KEY_Q);
+        m_input.bind_action("MoveDown", GLFW_KEY_E);
+        m_input.bind_action("MoveRight", GLFW_KEY_D);
+        m_input.bind_action("MoveLeft", GLFW_KEY_A);
+        m_input.bind_action("Jump", GLFW_KEY_SPACE);
+        m_input.bind_action("ToggleEditor", GLFW_KEY_GRAVE_ACCENT); // tilde key
+
         m_renderer.init(ctx);
         m_editor.init(ctx);
 
@@ -120,6 +132,7 @@ namespace Genesis {
 
         {
             std::lock_guard<std::mutex> lock(m_imguiMutex);
+            m_input.update_snapshot();
             produce_frame();
         }
         lastTick = now;
@@ -179,6 +192,10 @@ namespace Genesis {
         snapshot->sphereColor[0] = uiState.sphereColor[0];
         snapshot->sphereColor[1] = uiState.sphereColor[1];
         snapshot->sphereColor[2] = uiState.sphereColor[2];
+
+        snapshot->camPos[0] = uiState.camPos[0];
+        snapshot->camPos[1] = uiState.camPos[1];
+        snapshot->camPos[2] = uiState.camPos[2];
         packet.scenePayload = std::move(snapshot);
 
         // 5. Submit transaction block into flight queue
@@ -256,6 +273,70 @@ namespace Genesis {
                 auto logicStart = std::chrono::high_resolution_clock::now();
 
                 std::lock_guard<std::mutex> lock(m_imguiMutex);
+
+                // 2. Freeze hardware inputs into a thread-safe snapshot
+                m_input.update_snapshot();
+
+                // 3. Drive intuitive game/tools logic
+                if (m_input.get_action_down("ToggleEditor")) {
+                    //m_gui.toggle_visible();
+                }
+
+                if (m_input.get_action("MoveForward")) {
+                    float moveSpeed = .005f; // Units per second
+
+                    // Grab your UI state struct instance
+                    auto& uiState = m_gui.get_state();
+
+                    // Increase Z position smoothly over time
+                    m_gui.set_camera_z(uiState.camPos[2]+moveSpeed);
+                }
+                if (m_input.get_action("MoveBackward")) {
+                    float moveSpeed = -.005f; // Units per second
+
+                    // Grab your UI state struct instance
+                    auto& uiState = m_gui.get_state();
+
+                    // Increase Z position smoothly over time
+                    m_gui.set_camera_z(uiState.camPos[2]+moveSpeed);
+                }
+                if (m_input.get_action("MoveUp")) {
+                    float moveSpeed = .005f; // Units per second
+
+                    // Grab your UI state struct instance
+                    auto& uiState = m_gui.get_state();
+
+                    // Increase Z position smoothly over time
+                    m_gui.set_camera_y(uiState.camPos[1]+moveSpeed);
+                }
+                if (m_input.get_action("MoveDown")) {
+                    float moveSpeed = -.005f; // Units per second
+
+                    // Grab your UI state struct instance
+                    auto& uiState = m_gui.get_state();
+
+                    // Increase Z position smoothly over time
+                    m_gui.set_camera_y(uiState.camPos[1]+moveSpeed);
+                }
+                if (m_input.get_action("MoveRight")) {
+                    float moveSpeed = .005f; // Units per second
+
+                    // Grab your UI state struct instance
+                    auto& uiState = m_gui.get_state();
+
+                    // Increase Z position smoothly over time
+                    m_gui.set_camera_x(uiState.camPos[0]+moveSpeed);
+                }
+                if (m_input.get_action("MoveLeft")) {
+                    float moveSpeed = -.005f; // Units per second
+
+                    // Grab your UI state struct instance
+                    auto& uiState = m_gui.get_state();
+
+                    // Increase Z position smoothly over time
+                    m_gui.set_camera_x(uiState.camPos[0]+moveSpeed);
+                }
+
                 produce_frame();
 
                 auto logicEnd = std::chrono::high_resolution_clock::now();

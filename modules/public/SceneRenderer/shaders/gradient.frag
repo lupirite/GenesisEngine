@@ -3,11 +3,12 @@ layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 outColor;
 
 layout(push_constant) uniform Constants {
+    vec4 camPos;
+    vec4 sphereColor;
     float time;
     float winWidth;
     float winHeight;
     float sphereRadius;
-    vec3 sphereColor;
 };
 
 
@@ -67,7 +68,7 @@ void main() {
 
     vec3 rayDir = normalize(vec3(uv.xy, 1.));
 
-    vec3 rayOrigin = vec3(0., 0., 0.);
+    vec3 rayOrigin = camPos.xyz;
 
     float dist = rayMarch(rayOrigin, rayDir);
 
@@ -75,7 +76,7 @@ void main() {
 
     vec3 norm = getNorm(pos);
 
-    vec3 col = (1.+dot(norm, -sunDir))/2.*sphereColor;
+    vec3 col = (1.+dot(norm, -sunDir))/2.*sphereColor.xyz;
 
     if (dist >= MAXRAYDIST) {
         col = vec3(.5, .6, .9);

@@ -14,39 +14,36 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-project(Core LANGUAGES CXX)
+project(InputSystem LANGUAGES CXX)
 
 # ============================================================================
 # 1. Target Library Definition
 # ============================================================================
-# Manages multi-threaded pipeline synchronization, pacing, and core loop execution
-add_library(Core STATIC
-        src/Core.cpp
+# Manages multi-threaded action-mapped hardware event propagation
+add_library(InputSystem STATIC
+        src/InputSystem.cpp
+        include/InputSystem.hpp
 )
 
 # ============================================================================
 # 2. Header Include Search Paths Configuration
 # ============================================================================
-target_include_directories(Core PUBLIC
-        include
+# Publicly exports its include directory so downstream modules inherit paths
+target_include_directories(InputSystem PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # ============================================================================
 # 3. Direct Interface Dependency Linking Phase
 # ============================================================================
-# Aggregates all subsystems to coordinate logic and render worker threads
-target_link_libraries(Core PUBLIC
+# Inherits Vulkan APIs and GLFW window abstraction wrappers directly
+target_link_libraries(InputSystem PUBLIC
         Vulkan::Vulkan
         GpuSystem
-        Renderer
-        SceneRenderer
         Editor
-        EditorGUI
-        InputSystem
 )
 
 # ============================================================================
 # 4. Global Engine Registration Pass
 # ============================================================================
-# Appends this hub up into the core build compilation pipeline
-set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST Core)
+set_property(GLOBAL APPEND PROPERTY GENESIS_MODULE_LIST InputSystem)

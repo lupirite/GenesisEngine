@@ -28,6 +28,8 @@
 #include <atomic>
 #include <thread>
 
+#include "InputSystem.hpp"
+
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
@@ -35,6 +37,8 @@
 #endif
 
 namespace Genesis {
+
+    class InputSystem;
 
     class Core {
     public:
@@ -80,6 +84,8 @@ namespace Genesis {
         std::atomic<int>  m_packetsInFlight{ 0 };
         bool              m_needsRealResize = false;
         static bool       s_framebufferResized;
+
+        InputSystem m_input;
 
 #ifdef _WIN32
         // --- Native Win32 Custom Window Procedure Hooking ---
