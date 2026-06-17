@@ -19,6 +19,9 @@
 #include "SceneRenderer.hpp"
 #include <imgui.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 namespace Genesis {
 
     /// Holds the serialized snapshot data dispatched to the render worker thread.
@@ -26,6 +29,7 @@ namespace Genesis {
         float sphereRadius = 0.5f;
         float sphereColor[3] = { 0.25f, 0.1f, 0.9f };
         float camPos[3] = { 0, 0, 0};
+        glm::quat camRot;
     };
 
     /// Encapsulates sizing transactions issued by the ImGui docking layout viewport.
@@ -40,6 +44,8 @@ namespace Genesis {
         void set_camera_z(float z) { _state.camPos[2] = z; }
         void set_camera_y(float y) { _state.camPos[1] = y; }
         void set_camera_x(float x) { _state.camPos[0] = x; }
+
+        void set_camera_rot(glm::quat rot) { _state.camRot = rot; }
 
         // Enforces a hard physical constraint against runaway aspect ratios during window stretching
         static constexpr float MAX_ASPECT = 3.0f;

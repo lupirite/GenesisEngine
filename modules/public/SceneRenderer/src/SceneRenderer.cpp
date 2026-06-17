@@ -21,6 +21,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <glm/vec3.hpp>
 
 #include "../third_party/imgui/backends/imgui_impl_vulkan.h"
 
@@ -56,6 +57,9 @@ namespace Genesis {
 
     struct ShaderConstants {
         float camPos[4];
+        float camUp[4];
+        float camRight[4];
+        float camForward[4];
         float sphereColor[4];
         float time;
         float width;
@@ -303,6 +307,21 @@ namespace Genesis {
         constants.camPos[0] = snapshot->camPos[0];
         constants.camPos[1] = snapshot->camPos[1];
         constants.camPos[2] = snapshot->camPos[2];
+
+        glm::vec3 right   = snapshot->camRot * glm::vec3(1.0f, 0.0f, 0.0f);
+        glm::vec3 up      = snapshot->camRot * glm::vec3(0.0f, 1.0f, 0.0f);
+        glm::vec3 forward = snapshot->camRot * glm::vec3(0.0f, 0.0f, -1.0f);
+
+        // 3. Store vectors into push constants as vec4 packages for std140/std430 alignment
+        // We use the 'w' slots to pass extra data raymarcher needs anyway!
+        glm::vec4 forwardVec = glm::vec4(forward, 0.0f);
+        glm::vec4 rightVec   = glm::vec4(right,   static_cast<float>(_width));
+        glm::vec4 upVec      = glm::vec4(up,      static_cast<float>(_height));
+
+        // Safely copy the raw bytes into float arrays
+        std::memcpy(constants.camForward, &forwardVec, sizeof(constants.camForward));
+        std::memcpy(constants.camRight,   &rightVec,   sizeof(constants.camRight));
+        std::memcpy(constants.camUp,      &upVec,      sizeof(constants.camUp));
 
         vkCmdPushConstants(
             cmd,

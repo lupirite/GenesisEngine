@@ -4,6 +4,9 @@ layout (location = 0) out vec4 outColor;
 
 layout(push_constant) uniform Constants {
     vec4 camPos;
+    vec4 camUp;
+    vec4 camRight;
+    vec4 camForward;
     vec4 sphereColor;
     float time;
     float winWidth;
@@ -14,7 +17,7 @@ layout(push_constant) uniform Constants {
 
 const int MAXRAYSTEPS = 50;
 const float EPSILON = .01;
-const float MAXRAYDIST = 10.;
+const float MAXRAYDIST = 100.;
 
 float smin( float a, float b, float k )
 {
@@ -32,7 +35,11 @@ float getDist(vec3 pos) {
     float d2 = getSphereDist(pos-vec3(1.05, 0., 3.8), .75);
     float d3 = smin(d1, d2, .05);
 
-    return d3;
+    float p1 = -pos.y+2.;
+
+    float c1 = min(d3, p1);
+
+    return c1;
 }
 
 vec3 getNorm(vec3 pos) {
@@ -66,7 +73,7 @@ void main() {
     float aspectRatio = winWidth/winHeight;
     vec2 uv = vec2((inUV.x - .5)*aspectRatio, inUV.y - .5);
 
-    vec3 rayDir = normalize(vec3(uv.xy, 1.));
+    vec3 rayDir = normalize(uv.x*camRight.xyz + uv.y*camUp.xyz + camForward.xyz);
 
     vec3 rayOrigin = camPos.xyz;
 

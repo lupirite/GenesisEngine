@@ -196,6 +196,12 @@ namespace Genesis {
         snapshot->camPos[0] = uiState.camPos[0];
         snapshot->camPos[1] = uiState.camPos[1];
         snapshot->camPos[2] = uiState.camPos[2];
+
+        snapshot->camRot[0] = uiState.camRot[0];
+        snapshot->camRot[1] = uiState.camRot[1];
+        snapshot->camRot[2] = uiState.camRot[2];
+        snapshot->camRot[3] = uiState.camRot[3];
+
         packet.scenePayload = std::move(snapshot);
 
         // 5. Submit transaction block into flight queue
@@ -282,11 +288,10 @@ namespace Genesis {
                     //m_gui.toggle_visible();
                 }
 
+                auto& uiState = m_gui.get_state();
+
                 if (m_input.get_action("MoveForward")) {
                     float moveSpeed = .005f; // Units per second
-
-                    // Grab your UI state struct instance
-                    auto& uiState = m_gui.get_state();
 
                     // Increase Z position smoothly over time
                     m_gui.set_camera_z(uiState.camPos[2]+moveSpeed);
@@ -294,17 +299,11 @@ namespace Genesis {
                 if (m_input.get_action("MoveBackward")) {
                     float moveSpeed = -.005f; // Units per second
 
-                    // Grab your UI state struct instance
-                    auto& uiState = m_gui.get_state();
-
                     // Increase Z position smoothly over time
                     m_gui.set_camera_z(uiState.camPos[2]+moveSpeed);
                 }
                 if (m_input.get_action("MoveUp")) {
                     float moveSpeed = .005f; // Units per second
-
-                    // Grab your UI state struct instance
-                    auto& uiState = m_gui.get_state();
 
                     // Increase Z position smoothly over time
                     m_gui.set_camera_y(uiState.camPos[1]+moveSpeed);
@@ -312,17 +311,11 @@ namespace Genesis {
                 if (m_input.get_action("MoveDown")) {
                     float moveSpeed = -.005f; // Units per second
 
-                    // Grab your UI state struct instance
-                    auto& uiState = m_gui.get_state();
-
                     // Increase Z position smoothly over time
                     m_gui.set_camera_y(uiState.camPos[1]+moveSpeed);
                 }
                 if (m_input.get_action("MoveRight")) {
                     float moveSpeed = .005f; // Units per second
-
-                    // Grab your UI state struct instance
-                    auto& uiState = m_gui.get_state();
 
                     // Increase Z position smoothly over time
                     m_gui.set_camera_x(uiState.camPos[0]+moveSpeed);
@@ -330,12 +323,38 @@ namespace Genesis {
                 if (m_input.get_action("MoveLeft")) {
                     float moveSpeed = -.005f; // Units per second
 
-                    // Grab your UI state struct instance
-                    auto& uiState = m_gui.get_state();
 
                     // Increase Z position smoothly over time
                     m_gui.set_camera_x(uiState.camPos[0]+moveSpeed);
                 }
+
+                float mouseX = 0.0f;
+                float mouseY = 0.0f;
+
+                m_input.get_axis("MouseLook", mouseX, mouseY);
+
+                // 2. Define look sensitivity
+                const float sensitivity = 0.005f;
+                float yawChange   = -mouseX * sensitivity; // Left/Right
+                float pitchChange = mouseY * sensitivity; // Up/Down
+
+                // 3. Create local rotation increments
+                // These represent small rotations around the absolute local axes of a theoretical center point
+                glm::quat localPitch = glm::angleAxis(pitchChange, glm::vec3(1.0f, 0.0f, 0.0f)); // Local X
+                glm::quat localYaw   = glm::angleAxis(yawChange,   glm::vec3(0.0f, 1.0f, 0.0f)); // Local Y
+
+                // Optional: Read Roll inputs (Q/E keys) for a true space game feel
+                float rollChange = 0.0f;
+                if (m_input.get_action("RollLeft"))  rollChange += 2.0f/60.0f;
+                if (m_input.get_action("RollRight")) rollChange -= 2.0f/60.0f;
+                glm::quat localRoll = glm::angleAxis(rollChange, glm::vec3(0.0f, 0.0f, 1.0f)); // Local Z
+
+                // 4. THE MAGIC STEP: Multiply on the RIGHT side to rotate around own axes
+                // Order matters: Pitch then Yaw then Roll applied to the right of m_orientation
+                m_gui.set_camera_rot(uiState.camRot * localPitch * localYaw * localRoll);
+
+                // 5. Keep the quaternion normalized to avoid floating-point drift over time
+                m_gui.set_camera_rot(glm::normalize(uiState.camRot));
 
                 produce_frame();
 

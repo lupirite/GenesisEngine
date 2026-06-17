@@ -15,6 +15,9 @@
 //     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
+#include <glm/fwd.hpp>
+#include <glm/detail/type_quat.hpp>
+
 #include "GpuSystem.hpp"
 #include <vulkan/vulkan.h>
 
@@ -25,6 +28,7 @@ namespace Genesis {
     /// Thread-safe payload snapshot carrying runtime data across frame queues.
     struct SceneSnapshot : public IRenderPayload {
         float camPos[4];
+        glm::quat camRot;
         float sphereColor[4];
         float sphereRadius;
 

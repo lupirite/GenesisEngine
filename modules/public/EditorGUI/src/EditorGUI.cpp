@@ -179,6 +179,7 @@ namespace Genesis {
             ImGui::Separator();
 
             ImGui::DragFloat3("Camera Position", &_state.camPos[0], 0.05f, -100.0f, 100.0f);
+            ImGui::DragFloat4("Camera Rotation", &_state.camRot[0], 0.05f, -100.0f, 100.0f);
 
             // Expose scene configurations mapped to the engine context state
             ImGui::DragFloat("Sphere Radius", &_state.sphereRadius, 0.005f, 0.0f, 1.0f);
