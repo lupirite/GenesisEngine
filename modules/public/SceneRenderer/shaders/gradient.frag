@@ -15,9 +15,9 @@ layout(push_constant) uniform Constants {
 };
 
 
-const int MAXRAYSTEPS = 50;
+const int MAXRAYSTEPS = 150;
 const float EPSILON = .01;
-const float MAXRAYDIST = 100.;
+const float MAXRAYDIST = 1000.;
 
 float smin( float a, float b, float k )
 {
@@ -83,7 +83,11 @@ void main() {
 
     vec3 norm = getNorm(pos);
 
-    vec3 col = (1.+dot(norm, -sunDir))/2.*sphereColor.xyz;
+    vec3 col = sphereColor.xyz;
+    if (fract(pos.x) < .1 || fract(pos.z) < .1)
+        col = vec3(0, 0, 0);
+
+    col *= (1.+dot(norm, -sunDir))/2.;
 
     if (dist >= MAXRAYDIST) {
         col = vec3(.5, .6, .9);

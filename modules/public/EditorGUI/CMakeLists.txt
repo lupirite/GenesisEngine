@@ -42,6 +42,7 @@ target_link_libraries(EditorGUI PUBLIC
         GpuSystem
         Editor
         SceneRenderer
+        InputSystem
 )
 
 # ============================================================================

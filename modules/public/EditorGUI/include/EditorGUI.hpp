@@ -17,6 +17,7 @@
 #pragma once
 #include "Editor.hpp"
 #include "SceneRenderer.hpp"
+#include "InputSystem.hpp"
 #include <imgui.h>
 
 #include <glm/glm.hpp>

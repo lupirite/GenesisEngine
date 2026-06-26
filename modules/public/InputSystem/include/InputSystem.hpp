@@ -37,6 +37,8 @@ namespace Genesis {
         void bind_action(std::string_view actionName, int glfwKeyCode);
         void bind_axis(std::string_view axisName, int glfwMouseOrAxisID);
 
+        void set_mouse_grab(bool grab);
+
         // --- Thread Synchronization ---
         /// Copies the backend hardware states into the isolated logic snapshot.
         void update_snapshot();
@@ -72,6 +74,8 @@ namespace Genesis {
         InputStateBuffer m_backendBuffer;   // Written to dynamically by hardware thread
         InputStateBuffer m_snapshotBuffer;  // Read from statically by logic loop
         InputStateBuffer m_previousSnapshot;// Used to calculate target single-frame triggers
+        GLFWwindow* m_windowRef;
+        bool m_isMouseGrabbed = false;
     };
 
 } // namespace Genesis

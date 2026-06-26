@@ -33,6 +33,7 @@
 #include <GLFW/glfw3.h> // <--- MAKE SURE THIS IS FIRST!
 #include "InputSystem.hpp"
 #include <cstring>
+#include <iostream>
 
 #include "imgui.h"
 
@@ -40,6 +41,8 @@ namespace Genesis {
 
     void InputSystem::init(GLFWwindow* window) {
         if (!window) return;
+
+        m_windowRef = window;
 
         // Store this instance inside the window data payload for callback extraction
         glfwSetWindowUserPointer(window, this);
@@ -72,6 +75,28 @@ namespace Genesis {
         m_actionBindings[std::string(axisName)] = glfwMouseOrAxisID;
     }
 
+    void InputSystem::set_mouse_grab(bool grab) {
+        if (!m_windowRef) return;
+
+        m_isMouseGrabbed = grab;
+
+        if (grab) {
+            // 1. Lock and hide the cursor
+            glfwSetInputMode(m_windowRef, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+            // 2. CRITICAL: Bypass Windows desktop pointer smoothing/acceleration curves
+            if (glfwRawMouseMotionSupported()) {
+                glfwSetInputMode(m_windowRef, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+            }
+        } else {
+            // Restore default settings
+            glfwSetInputMode(m_windowRef, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            if (glfwRawMouseMotionSupported()) {
+                glfwSetInputMode(m_windowRef, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+            }
+        }
+    }
+
     void InputSystem::update_snapshot() {
         // Roll old frame context over into history tracker
         m_previousSnapshot = m_snapshotBuffer;
@@ -85,19 +110,25 @@ namespace Genesis {
             std::memcpy(m_snapshotBuffer.keys, m_backendBuffer.keys, sizeof(m_snapshotBuffer.keys));
         }
 
-        // UI Mask Pass: Manage cursor delta pooling based on active viewport coverage
-        if (io.WantCaptureMouse) {
-            m_snapshotBuffer.mouseX = m_backendBuffer.mouseX;
-            m_snapshotBuffer.mouseY = m_backendBuffer.mouseY;
-            m_snapshotBuffer.mouseDeltaX = 0.0;
-            m_snapshotBuffer.mouseDeltaY = 0.0;
-        } else {
-            m_snapshotBuffer.mouseX = m_backendBuffer.mouseX;
-            m_snapshotBuffer.mouseY = m_backendBuffer.mouseY;
+        // Mouse Pass
+        m_snapshotBuffer.mouseX = m_backendBuffer.mouseX;
+        m_snapshotBuffer.mouseY = m_backendBuffer.mouseY;
 
-            // Extract the accumulated asynchronous movement deltas
+        // CRITICAL: If the mouse is grabbed, we completely bypass ImGui's cursor capturing.
+        if (m_isMouseGrabbed) {
             m_snapshotBuffer.mouseDeltaX = m_backendBuffer.mouseDeltaX;
             m_snapshotBuffer.mouseDeltaY = m_backendBuffer.mouseDeltaY;
+        } else {
+            m_snapshotBuffer.mouseDeltaX = 0.0;
+            m_snapshotBuffer.mouseDeltaY = 0.0;
+            // Standard UI mask pass when not looking around
+            /*if (io.WantCaptureMouse) {
+                m_snapshotBuffer.mouseDeltaX = 0.0;
+                m_snapshotBuffer.mouseDeltaY = 0.0;
+            } else {
+                m_snapshotBuffer.mouseDeltaX = m_backendBuffer.mouseDeltaX;
+                m_snapshotBuffer.mouseDeltaY = m_backendBuffer.mouseDeltaY;
+            }*/
         }
 
         // Clear backend delta accumulations to prepare for the next asynchronous sampling phase

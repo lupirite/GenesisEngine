@@ -19,6 +19,8 @@
 #include <iostream>
 #include <algorithm>
 
+#include "imgui_internal.h"
+
 namespace Genesis {
 
     Core::Core() {
@@ -157,6 +159,18 @@ namespace Genesis {
         // 2. Assemble UI draw lists
         m_editor.new_frame();
         m_gui.render_ui(m_scene, ctx, isSizeMismatched);
+
+        if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            // Double-check if the specifically hovered window is your game viewport
+            // (Assuming your m_gui uses "Game Viewport" as its window title)
+            if (ImGui::FindWindowByName("Scene Viewport") == ImGui::GetCurrentContext()->HoveredWindow) {
+                m_input.set_mouse_grab(true);
+            }
+        }
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+            m_input.set_mouse_grab(false);
+        }
+
         ImGui::Render();
 
         // 3. Initialize fresh data packet for consumer thread distribution
@@ -257,6 +271,8 @@ namespace Genesis {
     void Core::run() {
         auto& ctx = m_gpu.get_context();
 
+        auto lastFrameTime = std::chrono::high_resolution_clock::now();
+
         while (!glfwWindowShouldClose(ctx.window)) {
             int curW, curH;
             glfwGetFramebufferSize(ctx.window, &curW, &curH);
@@ -276,12 +292,21 @@ namespace Genesis {
             glfwPollEvents();
 
             {
+                // 1. CALCULATE DELTA TIME
+                auto currentFrameTime = std::chrono::high_resolution_clock::now();
+                float deltaTime = std::chrono::duration<float>(currentFrameTime - lastFrameTime).count();
+                lastFrameTime = currentFrameTime;
+
+                // Cap deltaTime to avoid massive position warping during a heavy hitch or breakpoint debugging
+                if (deltaTime > 0.1f) deltaTime = 0.1f;
+
                 auto logicStart = std::chrono::high_resolution_clock::now();
 
-                std::lock_guard<std::mutex> lock(m_imguiMutex);
-
-                // 2. Freeze hardware inputs into a thread-safe snapshot
-                m_input.update_snapshot();
+                // --- SCOPE 1: Safely snapshot input data and update mouse grab ---
+                {
+                    std::lock_guard<std::mutex> lock(m_imguiMutex);
+                    m_input.update_snapshot();
+                }
 
                 // 3. Drive intuitive game/tools logic
                 if (m_input.get_action_down("ToggleEditor")) {
@@ -290,43 +315,46 @@ namespace Genesis {
 
                 auto& uiState = m_gui.get_state();
 
-                if (m_input.get_action("MoveForward")) {
-                    float moveSpeed = .005f; // Units per second
+                float moveSpeed = 4.0f; // Units per second
+                float frameMove = moveSpeed * deltaTime;
 
-                    // Increase Z position smoothly over time
-                    m_gui.set_camera_z(uiState.camPos[2]+moveSpeed);
+                // 1. Transform your camera quaternion into a safe local glm::quat
+                // (Ensure uiState.camRot matches your internal glm::quat format)
+                glm::quat cameraRotation = uiState.camRot;
+
+                // 2. Extract direction vectors relative to the camera's current rotation
+                // In OpenGL/Vulkan, Forward is typically down the negative Z-axis (-Z)
+                glm::vec3 localForward = cameraRotation * glm::vec3(0.0f, 0.0f, -1.0f);
+                glm::vec3 localRight   = cameraRotation * glm::vec3(1.0f, 0.0f, 0.0f);
+                glm::vec3 localUp      = cameraRotation * glm::vec3(0.0f, 1.0f, 0.0f);
+
+                // 3. Convert your current position payload into a temporary vec3 for easier tracking
+                glm::vec3 currentPos(uiState.camPos[0], uiState.camPos[1], uiState.camPos[2]);
+
+                // 4. Accrue translations along your directional vectors based on inputs
+                if (m_input.get_action("MoveForward")) {
+                    currentPos += localForward * frameMove;
                 }
                 if (m_input.get_action("MoveBackward")) {
-                    float moveSpeed = -.005f; // Units per second
-
-                    // Increase Z position smoothly over time
-                    m_gui.set_camera_z(uiState.camPos[2]+moveSpeed);
-                }
-                if (m_input.get_action("MoveUp")) {
-                    float moveSpeed = .005f; // Units per second
-
-                    // Increase Z position smoothly over time
-                    m_gui.set_camera_y(uiState.camPos[1]+moveSpeed);
-                }
-                if (m_input.get_action("MoveDown")) {
-                    float moveSpeed = -.005f; // Units per second
-
-                    // Increase Z position smoothly over time
-                    m_gui.set_camera_y(uiState.camPos[1]+moveSpeed);
+                    currentPos -= localForward * frameMove;
                 }
                 if (m_input.get_action("MoveRight")) {
-                    float moveSpeed = .005f; // Units per second
-
-                    // Increase Z position smoothly over time
-                    m_gui.set_camera_x(uiState.camPos[0]+moveSpeed);
+                    currentPos += localRight * frameMove;
                 }
                 if (m_input.get_action("MoveLeft")) {
-                    float moveSpeed = -.005f; // Units per second
-
-
-                    // Increase Z position smoothly over time
-                    m_gui.set_camera_x(uiState.camPos[0]+moveSpeed);
+                    currentPos -= localRight * frameMove;
                 }
+                if (m_input.get_action("MoveUp")) {
+                    currentPos += localUp * frameMove;
+                }
+                if (m_input.get_action("MoveDown")) {
+                    currentPos -= localUp * frameMove;
+                }
+
+                // 5. Commit the fully offset positional values back to your UI state
+                m_gui.set_camera_x(currentPos.x);
+                m_gui.set_camera_y(currentPos.y);
+                m_gui.set_camera_z(currentPos.z);
 
                 float mouseX = 0.0f;
                 float mouseY = 0.0f;
@@ -334,33 +362,30 @@ namespace Genesis {
                 m_input.get_axis("MouseLook", mouseX, mouseY);
 
                 // 2. Define look sensitivity
-                const float sensitivity = 0.005f;
-                float yawChange   = -mouseX * sensitivity; // Left/Right
-                float pitchChange = mouseY * sensitivity; // Up/Down
+                const float sensitivity = 0.004f;
+                float yawChange   = -mouseX * sensitivity;
+                float pitchChange = mouseY * sensitivity;
 
-                // 3. Create local rotation increments
-                // These represent small rotations around the absolute local axes of a theoretical center point
-                glm::quat localPitch = glm::angleAxis(pitchChange, glm::vec3(1.0f, 0.0f, 0.0f)); // Local X
-                glm::quat localYaw   = glm::angleAxis(yawChange,   glm::vec3(0.0f, 1.0f, 0.0f)); // Local Y
+                glm::quat localPitch = glm::angleAxis(pitchChange, glm::vec3(1.0f, 0.0f, 0.0f));
+                glm::quat localYaw   = glm::angleAxis(yawChange,   glm::vec3(0.0f, 1.0f, 0.0f));
 
                 // Optional: Read Roll inputs (Q/E keys) for a true space game feel
                 float rollChange = 0.0f;
-                if (m_input.get_action("RollLeft"))  rollChange += 2.0f/60.0f;
-                if (m_input.get_action("RollRight")) rollChange -= 2.0f/60.0f;
-                glm::quat localRoll = glm::angleAxis(rollChange, glm::vec3(0.0f, 0.0f, 1.0f)); // Local Z
+                if (m_input.get_action("RollLeft"))  rollChange += 2.0f * deltaTime;
+                if (m_input.get_action("RollRight")) rollChange -= 2.0f * deltaTime;
+                glm::quat localRoll = glm::angleAxis(rollChange, glm::vec3(0.0f, 0.0f, 1.0f));
 
-                // 4. THE MAGIC STEP: Multiply on the RIGHT side to rotate around own axes
-                // Order matters: Pitch then Yaw then Roll applied to the right of m_orientation
                 m_gui.set_camera_rot(uiState.camRot * localPitch * localYaw * localRoll);
-
-                // 5. Keep the quaternion normalized to avoid floating-point drift over time
                 m_gui.set_camera_rot(glm::normalize(uiState.camRot));
 
-                produce_frame();
+                // --- SCOPE 3: Lock only when calling the UI generator pipeline ---
+                {
+                    std::lock_guard<std::mutex> lock(m_imguiMutex);
+                    produce_frame();
+                }
 
                 auto logicEnd = std::chrono::high_resolution_clock::now();
-                m_gui.set_cpu_time(std::chrono::duration<float, std::milli>(logicEnd - logicStart).count());
-            }
+                m_gui.set_cpu_time(std::chrono::duration<float, std::milli>(logicEnd - logicStart).count());            }
         }
     }
 
